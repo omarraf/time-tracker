@@ -1,3 +1,4 @@
+/* Cleaned-up global styles for the app */
 
 :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
@@ -5,7 +6,7 @@
   font-weight: 400;
 
   color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
+  color: rgba(46, 34, 34, 0.87);
   background-color: #242424;
 
   font-synthesis: none;
@@ -25,15 +26,26 @@ a:hover {
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
+  padding: 0;
   min-width: 320px;
   min-height: 100vh;
+  background-color: #f4f6f8;
+  font-family: system-ui, sans-serif;
+  color: #333;
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+.app-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  padding: 2rem;
+}
+
+h1, h2, h4 {
+  text-align: center;
+  margin: 1rem 0;
 }
 
 button {
@@ -55,15 +67,31 @@ button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+input[type="text"],
+input[type="number"] {
+  padding: 0.5rem;
+  font-size: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 1rem;
+}
+
+.chart-container {
+  width: 500px;
+  height: 500px;
+  margin: 2rem auto;
+  text-align: center;
+}
+
+.color-picker-column {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.summary-block {
+  margin-top: 2rem;
+  text-align: left;
 }
