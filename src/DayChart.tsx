@@ -78,8 +78,15 @@ export default function DayChart() {
 
   const getSelectedIndexes = () => {
     if (startIndex === null || endIndex === null) return [];
-    const [min, max] = [startIndex, endIndex].sort((a, b) => a - b);
-    return Array.from({ length: max - min + 1 }, (_, i) => min + i);
+    if (startIndex <= endIndex) {
+      return Array.from({ length: endIndex - startIndex + 1 }, (_, i) => startIndex + i);
+    } else {
+      // Wrap around midnight
+      return [
+        ...Array.from({ length: 24 - startIndex }, (_, i) => startIndex + i),
+        ...Array.from({ length: endIndex + 1 }, (_, i) => i),
+      ];
+    }
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -174,7 +181,7 @@ export default function DayChart() {
     }
     return result;
   };
-
+  
   return (
     <div className="main-grid">
       <div className="chart-and-summary" onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}>
@@ -193,7 +200,7 @@ export default function DayChart() {
 
         
 
-        <div className="color-picker-column" style={{ marginTop: '1rem' }}>
+        <div className="color-picker-column" >
           <h4>🎨 Select Color</h4>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', justifyContent: 'center' }}>
             {availableColors.map((color) => (
