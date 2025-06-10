@@ -50,6 +50,8 @@ const availableColors = [
   '#fb923c', '#a3e635', '#f472b6', '#38bdf8', '#c084fc',
 ];
 
+const emojiOptions = ['😴', '🎧', '💻', '🏋️‍♂️', '🏀', '📚'];
+
 export default function DayChart() {
   const chartRef = useRef<ChartJS<'pie'> | null>(null);
 
@@ -63,6 +65,8 @@ export default function DayChart() {
 
   const [showModal, setShowModal] = useState(false);
   const [labelInput, setLabelInput] = useState('');
+  const [selectedEmoji, setSelectedEmoji] = useState('');
+
 
   const getIndexFromEvent = (e: React.MouseEvent) => {
     if (!chartRef.current) return null;
@@ -181,6 +185,13 @@ export default function DayChart() {
     }
     return result;
   };
+  const getHourDuration = (start: number, end: number) => {
+    if (start <= end) {
+      return end - start + 1; // inclusive range
+    } else {
+      return 24 - start + end + 1;
+    }
+  };
   
   return (
     <div className="main-grid">
@@ -221,12 +232,15 @@ export default function DayChart() {
         </div>
 
         <div className="legend" style={{ marginTop: '2rem' }}>
-          {groupedLabels().map(({ label, color, start, end }, i) => (
+        {groupedLabels().map(({ label, color, start, end }, i) => {
+          const duration = getHourDuration(start, end);
+          return (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
               <div style={{ backgroundColor: color, width: 16, height: 16, borderRadius: 4 }}></div>
-              <span>{label}: {hours[start]}–{hours[end]}</span>
+              <span>{label}: {hours[start]} – {hours[end]} ({duration} hour{duration > 1 ? 's' : ''})</span>
             </div>
-          ))}
+          );
+          })}
         </div>
       </div>
 
@@ -234,7 +248,7 @@ export default function DayChart() {
         isOpen={showModal}
         onRequestClose={() => setShowModal(false)}
         contentLabel="Add Label"
-        style={{ content: { maxWidth: '400px', margin: 'auto', padding: '2rem', borderRadius: '10px', height: '250px' } }}
+        style={{ content: { maxWidth: '400px', margin: 'auto', padding: '2rem', borderRadius: '10px', height: '150px' } }}
       >
         <h3>Label selected hours</h3>
         <input
