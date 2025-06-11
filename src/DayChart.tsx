@@ -7,11 +7,12 @@ import {
   ArcElement,
   Tooltip,
   Legend,
+  PieController,
 } from 'chart.js';
 import Modal from 'react-modal';
 import type { ChartOptions, TooltipItem } from 'chart.js';
 
-ChartJS.register(ArcElement, Tooltip, Legend);
+ChartJS.register(ArcElement, Tooltip, Legend, PieController);
 Modal.setAppElement('#root');
 
 const hours = Array.from({ length: 24 }, (_, i) => {
