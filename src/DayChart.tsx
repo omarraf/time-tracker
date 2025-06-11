@@ -162,47 +162,6 @@ export default function DayChart() {
     },
   };
 
-  const groupedLabels = () => {
-    const results: { label: string; color: string; start: number; end: number }[] = [];
-    const visited = Array(24).fill(false);
-  
-    for (let i = 0; i < 24; i++) {
-      if (visited[i]) continue;
-      const { label, color } = slices[i];
-      if (!label) continue;
-  
-      let end = i;
-      while (
-        slices[(end + 1) % 24]?.label === label &&
-        slices[(end + 1) % 24]?.color === color &&
-        !visited[(end + 1) % 24]
-      ) {
-        end = (end + 1) % 24;
-        if (end === i) break; // full circle loop
-      }
-  
-      results.push({ label, color, start: i, end });
-  
-      // Mark visited for this group
-      let j = i;
-      while (true) {
-        visited[j] = true;
-        if (j === end) break;
-        j = (j + 1) % 24;
-      }
-    }
-  
-    return results;
-  };
-  
-  const getHourDuration = (start: number, end: number) => {
-    if (start <= end) {
-      return end - start + 1; // inclusive range
-    } else {
-      return 24 - start + end + 1;
-    }
-  };
-
   const mergedGroupedLabels = () => {
     const rawGroups: { label: string; color: string; start: number; end: number }[] = [];
     for (let i = 0; i < 24; i++) {
@@ -265,8 +224,8 @@ if (
   mergedRanges[mergedRanges.length - 1][1] === 23 &&
   (mergedRanges[0][0] === (mergedRanges[mergedRanges.length - 1][1] + 1) % 24)
 ) {
-  const [startA, endA] = mergedRanges.pop()!;
-  const [startB, endB] = mergedRanges.shift()!;
+  const [startA, _endA] = mergedRanges.pop()!;
+  const [_startB, endB] = mergedRanges.shift()!;
   mergedRanges.unshift([startA, endB]);
 }
   
