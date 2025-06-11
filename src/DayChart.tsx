@@ -247,6 +247,7 @@ export default function DayChart() {
   
       // Group contiguous hours into new ranges
       let mergedRanges: [number, number][] = [];
+
 for (let i = 0; i < sortedHours.length; ) {
   let start = sortedHours[i];
   let end = start;
@@ -279,7 +280,7 @@ if (
   return (
     <div className="main-grid">
       <div className="chart-and-summary" onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}>
-        <h2>🕒 Daily Time Tracker</h2>
+        <h2>🕒 DayChart</h2>
         <p style={{ marginTop: '-0.5rem', marginBottom: '1.5rem' }}>Choose a color, drag across the clock, and label your time</p>
 
         <div className="chart-container" onMouseDown={handleMouseDown}>
