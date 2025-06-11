@@ -50,7 +50,7 @@ const availableColors = [
   '#fb923c', '#a3e635', '#f472b6', '#38bdf8', '#c084fc',
 ];
 
-const emojiOptions = ['😴', '🎧', '💻', '🏋️‍♂️', '🏀', '📚'];
+
 
 export default function DayChart() {
   const chartRef = useRef<ChartJS<'pie'> | null>(null);
@@ -65,7 +65,6 @@ export default function DayChart() {
 
   const [showModal, setShowModal] = useState(false);
   const [labelInput, setLabelInput] = useState('');
-  const [selectedEmoji, setSelectedEmoji] = useState('');
 
 
   const getIndexFromEvent = (e: React.MouseEvent) => {
@@ -85,11 +84,7 @@ export default function DayChart() {
     if (startIndex <= endIndex) {
       return Array.from({ length: endIndex - startIndex + 1 }, (_, i) => startIndex + i);
     } else {
-      // Wrap around midnight
-      return [
-        ...Array.from({ length: 24 - startIndex }, (_, i) => startIndex + i),
-        ...Array.from({ length: endIndex + 1 }, (_, i) => i),
-      ];
+      return Array.from({ length: 24 - startIndex + endIndex + 1 }, (_, i) => (startIndex + i) % 24);
     }
   };
 
@@ -168,23 +163,38 @@ export default function DayChart() {
   };
 
   const groupedLabels = () => {
-    const result: { label: string; color: string; start: number; end: number }[] = [];
+    const results: { label: string; color: string; start: number; end: number }[] = [];
+    const visited = Array(24).fill(false);
+  
     for (let i = 0; i < 24; i++) {
-      const curr = slices[i];
-      if (!curr.label) continue;
-      if (
-        result.length > 0 &&
-        result[result.length - 1].label === curr.label &&
-        result[result.length - 1].color === curr.color &&
-        result[result.length - 1].end === i - 1
+      if (visited[i]) continue;
+      const { label, color } = slices[i];
+      if (!label) continue;
+  
+      let end = i;
+      while (
+        slices[(end + 1) % 24]?.label === label &&
+        slices[(end + 1) % 24]?.color === color &&
+        !visited[(end + 1) % 24]
       ) {
-        result[result.length - 1].end = i;
-      } else {
-        result.push({ label: curr.label, color: curr.color, start: i, end: i });
+        end = (end + 1) % 24;
+        if (end === i) break; // full circle loop
+      }
+  
+      results.push({ label, color, start: i, end });
+  
+      // Mark visited for this group
+      let j = i;
+      while (true) {
+        visited[j] = true;
+        if (j === end) break;
+        j = (j + 1) % 24;
       }
     }
-    return result;
+  
+    return results;
   };
+  
   const getHourDuration = (start: number, end: number) => {
     if (start <= end) {
       return end - start + 1; // inclusive range
@@ -192,6 +202,79 @@ export default function DayChart() {
       return 24 - start + end + 1;
     }
   };
+
+  const mergedGroupedLabels = () => {
+    const rawGroups: { label: string; color: string; start: number; end: number }[] = [];
+    for (let i = 0; i < 24; i++) {
+      const curr = slices[i];
+      if (!curr.label) continue;
+      if (
+        rawGroups.length > 0 &&
+        rawGroups[rawGroups.length - 1].label === curr.label &&
+        rawGroups[rawGroups.length - 1].color === curr.color &&
+        rawGroups[rawGroups.length - 1].end === i - 1
+      ) {
+        rawGroups[rawGroups.length - 1].end = i;
+      } else {
+        rawGroups.push({ label: curr.label, color: curr.color, start: i, end: i });
+      }
+    }
+  
+    const merged: Record<string, { label: string; color: string; ranges: [number, number][] }> = {};
+  
+    for (const group of rawGroups) {
+      const key = `${group.label}__${group.color}`;
+      if (!merged[key]) {
+        merged[key] = { label: group.label, color: group.color, ranges: [] };
+      }
+      merged[key].ranges.push([group.start, group.end]);
+    }
+  
+    // Merge adjacent/overlapping ranges
+    const mergedWithCombining = Object.values(merged).map(({ label, color, ranges }) => {
+      // Convert to sorted list of hours
+      const allHours = new Set<number>();
+      for (const [start, end] of ranges) {
+        if (start <= end) {
+          for (let h = start; h <= end; h++) allHours.add(h);
+        } else {
+          for (let h = start; h < 24; h++) allHours.add(h);
+          for (let h = 0; h <= end; h++) allHours.add(h);
+        }
+      }
+  
+      const sortedHours = [...allHours].sort((a, b) => a - b);
+  
+      // Group contiguous hours into new ranges
+      let mergedRanges: [number, number][] = [];
+for (let i = 0; i < sortedHours.length; ) {
+  let start = sortedHours[i];
+  let end = start;
+  while (i + 1 < sortedHours.length && sortedHours[i + 1] === (end + 1) % 24) {
+    end = sortedHours[++i];
+  }
+  mergedRanges.push([start, end]);
+  i++;
+}
+
+// SPECIAL CASE PATCH: if first = 0 and last = 23 and contiguous, merge
+if (
+  mergedRanges.length >= 2 &&
+  mergedRanges[0][0] === 0 &&
+  mergedRanges[mergedRanges.length - 1][1] === 23 &&
+  (mergedRanges[0][0] === (mergedRanges[mergedRanges.length - 1][1] + 1) % 24)
+) {
+  const [startA, endA] = mergedRanges.pop()!;
+  const [startB, endB] = mergedRanges.shift()!;
+  mergedRanges.unshift([startA, endB]);
+}
+  
+      return { label, color, ranges: mergedRanges };
+    });
+  
+    return mergedWithCombining;
+  };  
+  
   
   return (
     <div className="main-grid">
@@ -232,15 +315,25 @@ export default function DayChart() {
         </div>
 
         <div className="legend" style={{ marginTop: '2rem' }}>
-        {groupedLabels().map(({ label, color, start, end }, i) => {
-          const duration = getHourDuration(start, end);
-          return (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+        {mergedGroupedLabels().map(({ label, color, ranges }, i) => (
+          <div key={i} style={{ marginBottom: '0.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <div style={{ backgroundColor: color, width: 16, height: 16, borderRadius: 4 }}></div>
-              <span>{label}: {hours[start]} – {hours[end]} ({duration} hour{duration > 1 ? 's' : ''})</span>
+              <span>{label}:</span>
             </div>
-          );
-          })}
+            <ul style={{ marginLeft: '1.5rem', marginTop: '0.25rem' }}>
+              {ranges.map(([start, end], j) => {
+                const duration = start <= end ? end - start + 1 : 24 - start + end + 1;
+                return (
+                  <li key={j}>
+                    {hours[start]} – {hours[(end + 1) % 24]} ({duration} hour{duration > 1 ? 's' : ''})
+                  </li>
+        );
+      })}
+    </ul>
+  </div>
+))}
+
         </div>
       </div>
 
