@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   Chart as ReactChart,
 } from 'react-chartjs-2';
@@ -15,11 +15,23 @@ import type { ChartOptions, TooltipItem } from 'chart.js';
 ChartJS.register(ArcElement, Tooltip, Legend, PieController);
 Modal.setAppElement('#root');
 
-const hours = Array.from({ length: 24 }, (_, i) => {
-  const hour = i % 12 === 0 ? 12 : i % 12;
-  const suffix = i < 12 ? 'AM' : 'PM';
-  return `${hour}${suffix}`;
-});
+const generateTimeLabels = (increment: 15 | 30 | 60) => {
+  const totalSlices = 24 * (60 / increment);
+  return Array.from({ length: totalSlices }, (_, i) => {
+    const totalMinutes = i * increment;
+    const hours = Math.floor(totalMinutes / 60) % 24;
+    const minutes = totalMinutes % 60;
+    const hour12 = hours % 12 === 0 ? 12 : hours % 12;
+    const suffix = hours < 12 ? 'AM' : 'PM';
+    
+    if (increment === 60) {
+      return `${hour12}${suffix}`;
+    } else {
+      const minuteStr = minutes.toString().padStart(2, '0');
+      return `${hour12}:${minuteStr}${suffix}`;
+    }
+  });
+};
 
 const ClockLabelsPlugin = {
   id: 'clockLabels',
@@ -35,11 +47,14 @@ const ClockLabelsPlugin = {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
+    // Always show 24 hour markers regardless of increment
     for (let i = 0; i < 24; i++) {
       const angle = (i / 24) * (2 * Math.PI) - Math.PI / 2;
       const x = centerX + radius * Math.cos(angle);
       const y = centerY + radius * Math.sin(angle);
-      ctx.fillText(hours[i], x, y);
+      const hour = i % 12 === 0 ? 12 : i % 12;
+      const suffix = i < 12 ? 'AM' : 'PM';
+      ctx.fillText(`${hour}${suffix}`, x, y);
     }
 
     ctx.restore();
@@ -57,7 +72,9 @@ export default function DayChart() {
   const chartRef = useRef<ChartJS<'pie'> | null>(null);
 
   type Slice = { color: string; label: string };
-  const [slices, setSlices] = useState<Slice[]>(Array(24).fill({ color: '#e0e0e0', label: '' }));
+  const [timeIncrement, setTimeIncrement] = useState<15 | 30 | 60>(60); // minutes
+  const totalSlices = 24 * (60 / timeIncrement); // 24, 48, or 96 slices
+  const [slices, setSlices] = useState<Slice[]>(() => Array(totalSlices).fill(0).map(() => ({ color: '#e0e0e0', label: '' })));
   const [selectedColor, setSelectedColor] = useState(availableColors[0]);
 
   const [isDragging, setIsDragging] = useState(false);
@@ -66,6 +83,48 @@ export default function DayChart() {
 
   const [showModal, setShowModal] = useState(false);
   const [labelInput, setLabelInput] = useState('');
+
+  // Generate labels based on current increment
+  const timeLabels = generateTimeLabels(timeIncrement);
+
+  // Reset slices when increment changes
+  React.useEffect(() => {
+    const newTotalSlices = 24 * (60 / timeIncrement);
+    setSlices(Array(newTotalSlices).fill(0).map(() => ({ color: '#e0e0e0', label: '' })));
+    setStartIndex(null);
+    setEndIndex(null);
+  }, [timeIncrement]);
+
+  // Helper function to convert slice index to time display
+  const getTimeFromIndex = (index: number) => {
+    const totalMinutes = index * timeIncrement;
+    const hours = Math.floor(totalMinutes / 60) % 24;
+    const minutes = totalMinutes % 60;
+    const hour12 = hours % 12 === 0 ? 12 : hours % 12;
+    const suffix = hours < 12 ? 'AM' : 'PM';
+    
+    if (minutes === 0) {
+      return `${hour12}${suffix}`;
+    } else {
+      const minuteStr = minutes.toString().padStart(2, '0');
+      return `${hour12}:${minuteStr}${suffix}`;
+    }
+  };
+
+  // Helper function to calculate duration in a human-readable format
+  const getDurationString = (sliceCount: number) => {
+    const totalMinutes = sliceCount * timeIncrement;
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    
+    if (hours === 0) {
+      return `${minutes} minute${minutes !== 1 ? 's' : ''}`;
+    } else if (minutes === 0) {
+      return `${hours} hour${hours !== 1 ? 's' : ''}`;
+    } else {
+      return `${hours} hour${hours !== 1 ? 's' : ''} ${minutes} minute${minutes !== 1 ? 's' : ''}`;
+    }
+  };
 
 
   const getIndexFromEvent = (e: React.MouseEvent) => {
@@ -85,7 +144,7 @@ export default function DayChart() {
     if (startIndex <= endIndex) {
       return Array.from({ length: endIndex - startIndex + 1 }, (_, i) => startIndex + i);
     } else {
-      return Array.from({ length: 24 - startIndex + endIndex + 1 }, (_, i) => (startIndex + i) % 24);
+      return Array.from({ length: totalSlices - startIndex + endIndex + 1 }, (_, i) => (startIndex + i) % totalSlices);
     }
   };
 
@@ -134,10 +193,10 @@ export default function DayChart() {
   };
 
   const data = {
-    labels: hours,
+    labels: timeLabels,
     datasets: [
       {
-        data: Array(24).fill(1),
+        data: Array(totalSlices).fill(1),
         backgroundColor: currentColors(),
         borderColor: '#ffffff',
         borderWidth: 1,
@@ -153,7 +212,7 @@ export default function DayChart() {
         callbacks: {
           label: (ctx: TooltipItem<'pie'>) => {
             const label = slices[ctx.dataIndex].label;
-            return label ? `${label} (${hours[ctx.dataIndex]})` : hours[ctx.dataIndex];
+            return label ? `${label} (${timeLabels[ctx.dataIndex]})` : timeLabels[ctx.dataIndex];
           },
         },
       },
@@ -165,9 +224,9 @@ export default function DayChart() {
 
   const mergedGroupedLabels = () => {
     const rawGroups: { label: string; color: string; start: number; end: number }[] = [];
-    for (let i = 0; i < 24; i++) {
+    for (let i = 0; i < totalSlices; i++) {
       const curr = slices[i];
-      if (!curr.label) continue;
+      if (!curr || !curr.label) continue;
       if (
         rawGroups.length > 0 &&
         rawGroups[rawGroups.length - 1].label === curr.label &&
@@ -192,43 +251,43 @@ export default function DayChart() {
   
     // Merge adjacent/overlapping ranges
     const mergedWithCombining = Object.values(merged).map(({ label, color, ranges }) => {
-      // Convert to sorted list of hours
-      const allHours = new Set<number>();
+      // Convert to sorted list of slice indices
+      const allIndices = new Set<number>();
       for (const [start, end] of ranges) {
         if (start <= end) {
-          for (let h = start; h <= end; h++) allHours.add(h);
+          for (let h = start; h <= end; h++) allIndices.add(h);
         } else {
-          for (let h = start; h < 24; h++) allHours.add(h);
-          for (let h = 0; h <= end; h++) allHours.add(h);
+          for (let h = start; h < totalSlices; h++) allIndices.add(h);
+          for (let h = 0; h <= end; h++) allIndices.add(h);
         }
       }
-  
-      const sortedHours = [...allHours].sort((a, b) => a - b);
-  
-      // Group contiguous hours into new ranges
-      let mergedRanges: [number, number][] = [];
 
-for (let i = 0; i < sortedHours.length; ) {
-  let start = sortedHours[i];
-  let end = start;
-  while (i + 1 < sortedHours.length && sortedHours[i + 1] === (end + 1) % 24) {
-    end = sortedHours[++i];
-  }
-  mergedRanges.push([start, end]);
-  i++;
-}
+      const sortedIndices = [...allIndices].sort((a, b) => a - b);
+  
+      // Group contiguous indices into new ranges
+      const mergedRanges: [number, number][] = [];
 
-// SPECIAL CASE PATCH: if first = 0 and last = 23 and contiguous, merge
-if (
-  mergedRanges.length >= 2 &&
-  mergedRanges[0][0] === 0 &&
-  mergedRanges[mergedRanges.length - 1][1] === 23 &&
-  (mergedRanges[0][0] === (mergedRanges[mergedRanges.length - 1][1] + 1) % 24)
-) {
-  const [startA, _endA] = mergedRanges.pop()!;
-  const [_startB, endB] = mergedRanges.shift()!;
-  mergedRanges.unshift([startA, endB]);
-}
+      for (let i = 0; i < sortedIndices.length; ) {
+        const start = sortedIndices[i];
+        let end = start;
+        while (i + 1 < sortedIndices.length && sortedIndices[i + 1] === (end + 1) % totalSlices) {
+          end = sortedIndices[++i];
+        }
+        mergedRanges.push([start, end]);
+        i++;
+      }
+
+      // SPECIAL CASE PATCH: if first = 0 and last = totalSlices-1 and contiguous, merge
+      if (
+        mergedRanges.length >= 2 &&
+        mergedRanges[0][0] === 0 &&
+        mergedRanges[mergedRanges.length - 1][1] === totalSlices - 1 &&
+        (mergedRanges[0][0] === (mergedRanges[mergedRanges.length - 1][1] + 1) % totalSlices)
+      ) {
+        const [startA] = mergedRanges.pop()!;
+        const [, endB] = mergedRanges.shift()!;
+        mergedRanges.unshift([startA, endB]);
+      }
   
       return { label, color, ranges: mergedRanges };
     });
@@ -241,7 +300,20 @@ if (
     <div className="main-grid">
       <div className="chart-and-summary" onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}>
         <h2>🕒 DayChart</h2>
-        <p style={{ marginTop: '-0.5rem', marginBottom: '1.5rem' }}>Choose a color, drag across the clock, and label your time</p>
+        <p style={{ marginTop: '-0.5rem', marginBottom: '1rem' }}>Choose a color, drag across the clock, and label your time</p>
+
+        <div style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center' }}>
+          <span>Time increment:</span>
+          <select 
+            value={timeIncrement} 
+            onChange={(e) => setTimeIncrement(parseInt(e.target.value) as 15 | 30 | 60)}
+            style={{ padding: '0.25rem', fontSize: '1rem', borderRadius: '4px', border: '1px solid #ccc' }}
+          >
+            <option value={60}>1 hour</option>
+            <option value={30}>30 minutes</option>
+            <option value={15}>15 minutes</option>
+          </select>
+        </div>
 
         <div className="chart-container" onMouseDown={handleMouseDown}>
           <ReactChart
@@ -276,7 +348,7 @@ if (
         </div>
 
         <div className="legend" style={{ marginTop: '2rem' }}>
-        {mergedGroupedLabels().map(({ label, color, ranges }, i) => (
+        {slices.length === totalSlices ? mergedGroupedLabels().map(({ label, color, ranges }, i) => (
           <div key={i} style={{ marginBottom: '0.5rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <div style={{ backgroundColor: color, width: 16, height: 16, borderRadius: 4 }}></div>
@@ -284,16 +356,17 @@ if (
             </div>
             <ul style={{ marginLeft: '1.5rem', marginTop: '0.25rem' }}>
               {ranges.map(([start, end], j) => {
-                const duration = start <= end ? end - start + 1 : 24 - start + end + 1;
+                const duration = start <= end ? end - start + 1 : totalSlices - start + end + 1;
+                const endIndex = (end + 1) % totalSlices;
                 return (
                   <li key={j}>
-                    {hours[start]} – {hours[(end + 1) % 24]} ({duration} hour{duration > 1 ? 's' : ''})
+                    {getTimeFromIndex(start)} – {getTimeFromIndex(endIndex)} ({getDurationString(duration)})
                   </li>
         );
       })}
     </ul>
   </div>
-))}
+)) : null}
 
         </div>
       </div>
