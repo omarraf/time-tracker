@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { auth } from '../firebase';
+import { auth, isFirebaseConfigured } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { signIn, signUp, signOutUser, googleSignIn } from '../auth';
 import Modal from 'react-modal';
@@ -8,7 +8,7 @@ import styles from './AuthModal.module.css';
 Modal.setAppElement('#root');
 
 export default function AuthButtons() {
-  const [user, setUser] = useState(auth.currentUser);
+  const [user, setUser] = useState(isFirebaseConfigured ? auth?.currentUser : null);
   const [showModal, setShowModal] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -16,8 +16,10 @@ export default function AuthButtons() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, setUser);
-    return () => unsubscribe();
+    if (isFirebaseConfigured && auth) {
+      const unsubscribe = onAuthStateChanged(auth, setUser);
+      return () => unsubscribe();
+    }
   }, []);
 
   const clearForm = () => {
@@ -127,6 +129,24 @@ export default function AuthButtons() {
     </svg>
   );
 
+  // If Firebase is not configured, show demo mode
+  if (!isFirebaseConfigured) {
+    return (
+      <div style={{ position: "absolute", top: 10, right: 10 }}>
+        <span style={{
+          padding: '8px 16px',
+          background: 'rgba(255, 255, 255, 0.9)',
+          borderRadius: '8px',
+          fontSize: '14px',
+          color: '#374151',
+          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+        }}>
+          Demo Mode
+        </span>
+      </div>
+    );
+  }
+
   if (user) {
     return (
       <div className={styles.userInfo}>
@@ -141,7 +161,7 @@ export default function AuthButtons() {
   return (
     <>
       <div style={{ position: "absolute", top: 10, right: 10 }}>
-        <button 
+        <button
           className={styles.signInTrigger}
           onClick={() => setShowModal(true)}
         >
