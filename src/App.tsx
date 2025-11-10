@@ -1,12 +1,9 @@
-import AuthButtons from './components/AuthButtons';
-import DayChart from './DayChart';
+import Modal from 'react-modal';
+import Dashboard from './components/Dashboard';
 
+// Set modal root for accessibility
+Modal.setAppElement('#root');
 
 export default function App() {
-  return (
-    <div className="container">
-      <AuthButtons/>
-      <DayChart />
-    </div>
-  );
+  return <Dashboard />;
 }

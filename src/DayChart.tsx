@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
 import {
   Chart as ReactChart,
 } from 'react-chartjs-2';
@@ -11,6 +11,19 @@ import {
 } from 'chart.js';
 import Modal from 'react-modal';
 import type { ChartOptions, TooltipItem } from 'chart.js';
+import { auth, isFirebaseConfigured } from './firebase';
+import { onAuthStateChanged } from 'firebase/auth';
+import type { User } from 'firebase/auth';
+import {
+  saveSchedule,
+  updateSchedule,
+  getDefaultSchedule,
+  getUserSchedules,
+  deleteSchedule,
+  setDefaultSchedule,
+  type Slice as FirestoreSlice,
+  type Schedule,
+} from './firestore';
 
 ChartJS.register(ArcElement, Tooltip, Legend, PieController);
 Modal.setAppElement('#root');
@@ -67,6 +80,162 @@ export default function DayChart() {
   const [showModal, setShowModal] = useState(false);
   const [labelInput, setLabelInput] = useState('');
 
+  // Firebase state
+  const [user, setUser] = useState<User | null>(null);
+  const [currentScheduleId, setCurrentScheduleId] = useState<string | null>(null);
+  const [userSchedules, setUserSchedules] = useState<Schedule[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error' | null>(null);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [newScheduleName, setNewScheduleName] = useState('');
+
+  // Load user's schedules on auth change
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+      setIsLoading(true);
+
+      if (currentUser) {
+        try {
+          // Load all user schedules
+          const schedules = await getUserSchedules(currentUser.uid);
+          setUserSchedules(schedules);
+
+          // Load default schedule
+          const defaultSchedule = await getDefaultSchedule(currentUser.uid);
+          if (defaultSchedule) {
+            setSlices(defaultSchedule.slices as Slice[]);
+            setCurrentScheduleId(defaultSchedule.id);
+          }
+        } catch (error) {
+          console.error('Error loading schedules:', error);
+        }
+      } else {
+        // User logged out - reset to empty schedule
+        setSlices(Array(24).fill({ color: '#e0e0e0', label: '' }));
+        setCurrentScheduleId(null);
+        setUserSchedules([]);
+      }
+
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Auto-save function with debouncing
+  const saveCurrentSchedule = useCallback(async (slicesToSave: Slice[]) => {
+    if (!user || isSaving) return;
+
+    setIsSaving(true);
+    setSaveStatus('saving');
+
+    try {
+      const scheduleData = {
+        name: 'My Schedule',
+        slices: slicesToSave as FirestoreSlice[],
+        isDefault: true,
+      };
+
+      if (currentScheduleId) {
+        // Update existing schedule
+        await updateSchedule(currentScheduleId, user.uid, scheduleData);
+      } else {
+        // Create new schedule
+        const newId = await saveSchedule(user.uid, scheduleData);
+        setCurrentScheduleId(newId);
+      }
+
+      setSaveStatus('saved');
+      setTimeout(() => setSaveStatus(null), 2000);
+    } catch (error) {
+      console.error('Error saving schedule:', error);
+      setSaveStatus('error');
+      setTimeout(() => setSaveStatus(null), 3000);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [user, currentScheduleId, isSaving]);
+
+  // Auto-save when slices change (with debounce)
+  useEffect(() => {
+    if (!user || isLoading) return;
+
+    const timeoutId = setTimeout(() => {
+      saveCurrentSchedule(slices);
+    }, 1000); // 1 second debounce
+
+    return () => clearTimeout(timeoutId);
+  }, [slices, user, isLoading, saveCurrentSchedule]);
+
+  // Schedule management functions
+  const createNewSchedule = async () => {
+    if (!user || !newScheduleName.trim()) return;
+
+    try {
+      const scheduleData = {
+        name: newScheduleName.trim(),
+        slices: Array(24).fill({ color: '#e0e0e0', label: '' }),
+        isDefault: false,
+      };
+
+      await saveSchedule(user.uid, scheduleData);
+      const updatedSchedules = await getUserSchedules(user.uid);
+      setUserSchedules(updatedSchedules);
+      setNewScheduleName('');
+      setShowScheduleModal(false);
+    } catch (error) {
+      console.error('Error creating schedule:', error);
+    }
+  };
+
+  const switchSchedule = async (scheduleId: string) => {
+    if (!user) return;
+
+    const schedule = userSchedules.find(s => s.id === scheduleId);
+    if (schedule) {
+      setSlices(schedule.slices as Slice[]);
+      setCurrentScheduleId(schedule.id);
+
+      // Set as default
+      try {
+        await setDefaultSchedule(scheduleId, user.uid);
+        const updatedSchedules = await getUserSchedules(user.uid);
+        setUserSchedules(updatedSchedules);
+      } catch (error) {
+        console.error('Error setting default schedule:', error);
+      }
+    }
+  };
+
+  const handleDeleteSchedule = async (scheduleId: string) => {
+    if (!user) return;
+
+    if (!confirm('Are you sure you want to delete this schedule?')) return;
+
+    try {
+      await deleteSchedule(scheduleId, user.uid);
+      const updatedSchedules = await getUserSchedules(user.uid);
+      setUserSchedules(updatedSchedules);
+
+      // If we deleted the current schedule, load another one
+      if (scheduleId === currentScheduleId) {
+        if (updatedSchedules.length > 0) {
+          const firstSchedule = updatedSchedules[0];
+          setSlices(firstSchedule.slices as Slice[]);
+          setCurrentScheduleId(firstSchedule.id);
+          await setDefaultSchedule(firstSchedule.id, user.uid);
+        } else {
+          // No schedules left - reset
+          setSlices(Array(24).fill({ color: '#e0e0e0', label: '' }));
+          setCurrentScheduleId(null);
+        }
+      }
+    } catch (error) {
+      console.error('Error deleting schedule:', error);
+    }
+  };
 
   const getIndexFromEvent = (e: React.MouseEvent) => {
     if (!chartRef.current) return null;
@@ -206,10 +375,10 @@ export default function DayChart() {
       const sortedHours = [...allHours].sort((a, b) => a - b);
   
       // Group contiguous hours into new ranges
-      let mergedRanges: [number, number][] = [];
+      const mergedRanges: [number, number][] = [];
 
 for (let i = 0; i < sortedHours.length; ) {
-  let start = sortedHours[i];
+  const start = sortedHours[i];
   let end = start;
   while (i + 1 < sortedHours.length && sortedHours[i + 1] === (end + 1) % 24) {
     end = sortedHours[++i];
@@ -225,8 +394,8 @@ if (
   mergedRanges[mergedRanges.length - 1][1] === 23 &&
   (mergedRanges[0][0] === (mergedRanges[mergedRanges.length - 1][1] + 1) % 24)
 ) {
-  const [startA, _endA] = mergedRanges.pop()!;
-  const [_startB, endB] = mergedRanges.shift()!;
+  const [startA] = mergedRanges.pop()!;
+  const [, endB] = mergedRanges.shift()!;
   mergedRanges.unshift([startA, endB]);
 }
   
@@ -237,11 +406,92 @@ if (
   };  
   
   
+  if (isLoading) {
+    return (
+      <div className="main-grid">
+        <div className="chart-and-summary">
+          <h2>🕒 DayChart</h2>
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="main-grid">
       <div className="chart-and-summary" onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}>
-        <h2>🕒 DayChart</h2>
-        <p style={{ marginTop: '-0.5rem', marginBottom: '1.5rem' }}>Choose a color, drag across the clock, and label your time</p>
+        {!isFirebaseConfigured && (
+          <div className="mb-6 px-6 py-4 bg-amber-50 border-2 border-amber-300 rounded-xl text-center">
+            <p className="text-amber-900 font-semibold mb-2">⚠️ Firebase Not Configured</p>
+            <p className="text-sm text-amber-800 mb-2">
+              Your schedules won't be saved. To enable authentication and data persistence:
+            </p>
+            <ol className="text-xs text-left text-amber-800 max-w-lg mx-auto space-y-1">
+              <li>1. Copy <code className="bg-amber-100 px-1 rounded">.env.example</code> to <code className="bg-amber-100 px-1 rounded">.env</code></li>
+              <li>2. Get Firebase credentials from <a href="https://console.firebase.google.com/" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">Firebase Console</a></li>
+              <li>3. Add your credentials to <code className="bg-amber-100 px-1 rounded">.env</code></li>
+              <li>4. Restart the dev server</li>
+            </ol>
+          </div>
+        )}
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem' }}>
+          <h2>🕒 DayChart</h2>
+          {user && saveStatus && (
+            <span style={{
+              fontSize: '0.875rem',
+              padding: '0.25rem 0.75rem',
+              borderRadius: '12px',
+              backgroundColor: saveStatus === 'saved' ? '#d1fae5' : saveStatus === 'saving' ? '#dbeafe' : '#fee2e2',
+              color: saveStatus === 'saved' ? '#065f46' : saveStatus === 'saving' ? '#1e40af' : '#991b1b',
+              fontWeight: 500,
+            }}>
+              {saveStatus === 'saved' ? '✓ Saved' : saveStatus === 'saving' ? '↻ Saving...' : '✕ Error'}
+            </span>
+          )}
+        </div>
+        <p style={{ marginTop: '-0.5rem', marginBottom: '1.5rem' }}>
+          Choose a color, drag across the clock, and label your time
+          {user && <span style={{ display: 'block', fontSize: '0.75rem', color: '#666', marginTop: '0.25rem' }}>
+            Auto-save enabled
+          </span>}
+        </p>
+
+        {user && userSchedules.length > 0 && (
+          <div className="mb-6 flex flex-col items-center gap-3">
+            <div className="flex items-center gap-2 flex-wrap justify-center">
+              {userSchedules.map((schedule) => (
+                <div key={schedule.id} className="flex items-center gap-1">
+                  <button
+                    onClick={() => switchSchedule(schedule.id)}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                      schedule.id === currentScheduleId
+                        ? 'bg-blue-600 text-white shadow-md'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                  >
+                    {schedule.name} {schedule.isDefault && '⭐'}
+                  </button>
+                  {userSchedules.length > 1 && (
+                    <button
+                      onClick={() => handleDeleteSchedule(schedule.id)}
+                      className="px-2 py-2 bg-red-100 text-red-600 rounded-lg text-xs hover:bg-red-200 transition-colors"
+                      title="Delete schedule"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              ))}
+              <button
+                onClick={() => setShowScheduleModal(true)}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
+              >
+                + New Schedule
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="chart-container" onMouseDown={handleMouseDown}>
           <ReactChart
@@ -313,6 +563,58 @@ if (
         />
         <button onClick={applyLabel}>Save</button>
         <button onClick={() => setShowModal(false)} style={{ marginLeft: '1rem' }}>Cancel</button>
+      </Modal>
+
+      <Modal
+        isOpen={showScheduleModal}
+        onRequestClose={() => {
+          setShowScheduleModal(false);
+          setNewScheduleName('');
+        }}
+        contentLabel="Create New Schedule"
+        style={{
+          content: {
+            maxWidth: '400px',
+            margin: 'auto',
+            padding: '2rem',
+            borderRadius: '16px',
+            height: 'auto',
+            border: 'none',
+            boxShadow: '0 10px 40px rgba(0, 0, 0, 0.15)',
+          },
+        }}
+      >
+        <h3 className="text-xl font-bold text-gray-900 mb-4">Create New Schedule</h3>
+        <input
+          type="text"
+          value={newScheduleName}
+          onChange={(e) => setNewScheduleName(e.target.value)}
+          placeholder="Schedule name (e.g., Weekday, Weekend)"
+          className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg mb-4 focus:border-blue-500 focus:outline-none transition-colors"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && newScheduleName.trim()) {
+              createNewSchedule();
+            }
+          }}
+        />
+        <div className="flex gap-2">
+          <button
+            onClick={createNewSchedule}
+            disabled={!newScheduleName.trim()}
+            className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Create
+          </button>
+          <button
+            onClick={() => {
+              setShowScheduleModal(false);
+              setNewScheduleName('');
+            }}
+            className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
       </Modal>
     </div>
   );
