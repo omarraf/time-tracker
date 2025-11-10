@@ -8,6 +8,7 @@ import {
   snapToFiveMinutes,
   sortTimeBlocks,
   formatHourTo12Hour,
+  formatTo12Hour,
 } from '../utils/timeUtils';
 
 interface TimelineProps {
@@ -25,6 +26,42 @@ export default function Timeline({
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState<number | null>(null);
   const [dragEnd, setDragEnd] = useState<number | null>(null);
+  const [viewportHeight, setViewportHeight] = useState(
+    typeof window !== 'undefined' ? window.innerHeight : 0,
+  );
+
+  useEffect(() => {
+    const handleResize = () => setViewportHeight(window.innerHeight);
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const timelineHeight = viewportHeight
+    ? Math.max(820, viewportHeight - 320) // leave room for header + spacing
+    : 1100;
+  const totalDayMinutes = 24 * 60;
+
+  const getTimelineSegments = (startMinutes: number, durationMinutes: number) => {
+    if (durationMinutes <= 0) return [];
+
+    if (startMinutes + durationMinutes <= totalDayMinutes) {
+      return [{
+        start: startMinutes,
+        duration: durationMinutes,
+      }];
+    }
+
+    const firstDuration = totalDayMinutes - startMinutes;
+    const secondDuration = durationMinutes - firstDuration;
+
+    const segments = [
+      { start: startMinutes, duration: firstDuration },
+      { start: 0, duration: secondDuration },
+    ];
+
+    return segments.filter(segment => segment.duration > 0);
+  };
 
   // Convert pixel position to time in minutes
   const pixelToMinutes = (pixelY: number): number => {
@@ -110,34 +147,38 @@ export default function Timeline({
     return sortTimeBlocks(timeBlocks).map((block) => {
       const startMinutes = timeStringToMinutes(block.startTime);
       const duration = calculateDuration(block.startTime, block.endTime);
-      const top = (startMinutes / (24 * 60)) * 100;
-      const height = (duration / (24 * 60)) * 100;
+      const segments = getTimelineSegments(startMinutes, duration);
 
-      return (
-        <div
-          key={block.id}
-          className="absolute left-14 right-4 rounded-lg cursor-pointer transition-all hover:shadow-lg hover:scale-[1.02] group"
-          style={{
-            top: `${top}%`,
-            height: `${height}%`,
-            backgroundColor: block.color,
-            minHeight: '20px',
-          }}
-          onClick={() => onBlockClick(block)}
-        >
-          <div className="px-3 py-2 text-white font-medium text-sm">
-            <div className="flex items-center justify-between">
-              <span className="truncate">{block.label}</span>
-              <span className="text-xs opacity-75">
-                {formatDuration(duration)}
-              </span>
-            </div>
-            <div className="text-xs opacity-75 mt-0.5">
-              {block.startTime} - {block.endTime}
+      return segments.map((segment, index) => {
+        const top = (segment.start / totalDayMinutes) * 100;
+        const height = (segment.duration / totalDayMinutes) * 100;
+
+        return (
+          <div
+            key={`${block.id}-${index}`}
+            className="absolute left-14 right-4 rounded-lg cursor-pointer transition-all hover:shadow-lg hover:scale-[1.02] group"
+            style={{
+              top: `${top}%`,
+              height: `${height}%`,
+              backgroundColor: block.color,
+              minHeight: '20px',
+            }}
+            onClick={() => onBlockClick(block)}
+            title={`${block.label} (${formatTo12Hour(block.startTime)} - ${formatTo12Hour(block.endTime)})`}
+          >
+            <div className="px-3 py-2 text-white font-medium text-sm">
+              <div className="flex items-center justify-between">
+                <span className="truncate">{block.label}</span>
+                {index === 0 && (
+                  <span className="text-xs opacity-75">
+                    {formatDuration(duration)}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      );
+        );
+      });
     });
   };
 
@@ -146,55 +187,56 @@ export default function Timeline({
     if (!isDragging || dragStart === null || dragEnd === null) return null;
 
     const startMinutes = Math.min(dragStart, dragEnd);
-    const endMinutes = Math.max(dragStart, dragEnd);
-    const duration = endMinutes - startMinutes;
-    const top = (startMinutes / (24 * 60)) * 100;
-    const height = (duration / (24 * 60)) * 100;
+    const duration = Math.abs(dragEnd - dragStart);
+    const segments = getTimelineSegments(startMinutes, duration);
 
-    return (
+    return segments.map((segment, index) => (
       <div
+        key={`preview-${segment.start}-${index}`}
         className="absolute left-14 right-4 rounded-lg border-2 border-dashed border-gray-400 pointer-events-none bg-gradient-to-r from-blue-100 to-purple-100"
         style={{
-          top: `${top}%`,
-          height: `${height}%`,
+          top: `${(segment.start / totalDayMinutes) * 100}%`,
+          height: `${(segment.duration / totalDayMinutes) * 100}%`,
           opacity: 0.7,
         }}
       >
-        <div className="px-3 py-2 text-gray-700 font-medium text-sm">
-          <div className="text-xs">
-            {minutesToTimeString(startMinutes)} - {minutesToTimeString(endMinutes)}
+        {index === 0 && (
+          <div className="px-3 py-2 text-gray-700 font-medium text-sm">
+            <div className="text-xs">
+              {formatTo12Hour(minutesToTimeString(startMinutes))} - {formatTo12Hour(minutesToTimeString((startMinutes + duration) % totalDayMinutes))}
+            </div>
+            <div className="text-xs opacity-75">
+              {formatDuration(duration)}
+            </div>
           </div>
-          <div className="text-xs opacity-75">
-            {formatDuration(duration)}
-          </div>
-        </div>
+        )}
       </div>
-    );
+    ));
   };
 
   return (
-    <div className="flex-1 bg-gray-50 p-8 overflow-auto">
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+    <div className="flex-1 overflow-auto bg-gray-50">
+      <div className="mx-auto max-w-4xl px-6 py-8">
+        <div className="mb-6">
+          <h3 className="text-lg font-semibold text-gray-900">
             Timeline View
           </h3>
-          <p className="text-sm text-gray-600 mb-6">
+          <p className="text-sm text-gray-600 mt-2">
             Drag on the timeline to create time blocks (5-minute intervals)
           </p>
+        </div>
 
-          {/* Timeline Container */}
-          <div className="relative pl-16">
-            <div
-              ref={timelineRef}
-              className="relative bg-white border-2 border-gray-300 rounded-lg cursor-crosshair"
-              style={{ height: '1440px' }} // 1px per minute (24hr * 60min)
-              onMouseDown={handleMouseDown}
-            >
-              {renderHourMarkers()}
-              {renderTimeBlocks()}
-              {renderDragPreview()}
-            </div>
+        {/* Timeline Container */}
+        <div className="relative pl-16">
+          <div
+            ref={timelineRef}
+            className="relative bg-white border-2 border-gray-300 rounded-lg cursor-crosshair shadow-sm"
+            style={{ height: `${timelineHeight}px` }}
+            onMouseDown={handleMouseDown}
+          >
+            {renderHourMarkers()}
+            {renderTimeBlocks()}
+            {renderDragPreview()}
           </div>
         </div>
       </div>

@@ -16,8 +16,9 @@ export const snapToFiveMinutes = (minutes: number): number => {
  */
 export const minutesToTimeString = (minutes: number): string => {
   const snapped = snapToFiveMinutes(minutes);
-  const hours = Math.floor(snapped / 60) % 24;
-  const mins = snapped % 60;
+  const totalMinutes = (snapped % (24 * 60) + 24 * 60) % (24 * 60);
+  const hours = Math.floor(totalMinutes / 60);
+  const mins = totalMinutes % 60;
   return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
 };
 
@@ -79,13 +80,28 @@ export const formatDuration = (minutes: number): string => {
  * @param range2 Second time range
  * @returns True if ranges overlap
  */
-export const doTimeRangesOverlap = (range1: TimeRange, range2: TimeRange): boolean => {
-  const start1 = timeStringToMinutes(range1.start);
-  const end1 = timeStringToMinutes(range1.end);
-  const start2 = timeStringToMinutes(range2.start);
-  const end2 = timeStringToMinutes(range2.end);
+const expandRangeToSegments = (range: TimeRange): Array<{ start: number; end: number }> => {
+  const start = timeStringToMinutes(range.start);
+  const end = timeStringToMinutes(range.end);
+  const totalMinutes = 24 * 60;
 
-  return start1 < end2 && start2 < end1;
+  if (end > start) {
+    return [{ start, end }];
+  }
+
+  return [
+    { start, end: totalMinutes },
+    { start: 0, end },
+  ].filter(segment => segment.start !== segment.end);
+};
+
+export const doTimeRangesOverlap = (range1: TimeRange, range2: TimeRange): boolean => {
+  const segments1 = expandRangeToSegments(range1);
+  const segments2 = expandRangeToSegments(range2);
+
+  return segments1.some(seg1 =>
+    segments2.some(seg2 => seg1.start < seg2.end && seg2.start < seg1.end),
+  );
 };
 
 /**
@@ -100,11 +116,9 @@ export const validateTimeBlock = (
   existingBlocks: TimeBlock[],
   excludeId?: string
 ): { valid: boolean; message?: string } => {
-  const startMinutes = timeStringToMinutes(newBlock.startTime);
-  const endMinutes = timeStringToMinutes(newBlock.endTime);
+  const duration = calculateDuration(newBlock.startTime, newBlock.endTime);
 
-  // Check if end time is after start time
-  if (endMinutes <= startMinutes) {
+  if (duration <= 0) {
     return {
       valid: false,
       message: 'End time must be after start time',

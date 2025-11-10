@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import Modal from 'react-modal';
-import { formatDuration, calculateDuration } from '../utils/timeUtils';
+import { formatDuration, calculateDuration, formatTo12Hour } from '../utils/timeUtils';
 
 interface LabelModalProps {
   isOpen: boolean;
@@ -68,7 +68,7 @@ export default function LabelModal({
         <h3 className="text-2xl font-bold text-gray-900 mb-2">Create Time Block</h3>
         <div className="flex items-center gap-3 mb-6">
           <div className="text-sm text-gray-600">
-            {startTime} - {endTime}
+            {formatTo12Hour(startTime)} - {formatTo12Hour(endTime)}
           </div>
           <div className="w-1 h-1 rounded-full bg-gray-400"></div>
           <div className="text-sm font-medium text-blue-600">

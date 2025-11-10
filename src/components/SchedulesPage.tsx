@@ -8,6 +8,7 @@ import {
   setDefaultSchedule,
   saveSchedule,
 } from '../services/scheduleService';
+import { formatTo12Hour } from '../utils/timeUtils';
 
 interface SchedulesPageProps {
   user: User;
@@ -267,7 +268,7 @@ export default function SchedulesPage({
                             className="px-3 py-1.5 rounded-lg text-white text-xs font-medium"
                             style={{ backgroundColor: block.color }}
                           >
-                            {block.label} ({block.startTime}-{block.endTime})
+                            {block.label} ({formatTo12Hour(block.startTime)}-{formatTo12Hour(block.endTime)})
                           </div>
                         ))}
                         {schedule.timeBlocks.length > 5 && (

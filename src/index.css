@@ -24,17 +24,17 @@
   }
 
   button {
-    @apply rounded-lg border border-transparent px-5 py-2.5 text-base font-medium bg-gray-900 text-white cursor-pointer transition-colors;
+    @apply rounded-lg border border-gray-200 px-5 py-2.5 text-base font-medium bg-white text-gray-900 shadow-sm cursor-pointer transition-colors;
     font-family: inherit;
   }
 
   button:hover {
-    @apply border-blue-600;
+    @apply bg-gray-50 border-gray-300;
   }
 
   button:focus,
   button:focus-visible {
-    @apply outline outline-4 outline-blue-600;
+    @apply outline-none ring-2 ring-blue-500 ring-offset-2;
   }
 
   input[type="text"],

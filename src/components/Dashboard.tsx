@@ -301,23 +301,23 @@ export default function Dashboard() {
 
             {/* View Controls */}
             {currentRoute === 'dashboard' && (
-              <div className="inline-flex rounded-lg border border-gray-300 p-1 bg-white">
+              <div className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-100/80 p-1 shadow-inner">
                 <button
                   onClick={() => setViewMode('linear')}
-                  className={`px-4 py-1.5 rounded-md font-medium text-sm transition-all ${
+                  className={`px-4 py-1.5 rounded-full border text-sm font-medium transition-all ${
                     viewMode === 'linear'
-                      ? 'bg-gray-900 text-white shadow-sm'
-                      : 'text-gray-700 hover:text-gray-900'
+                      ? 'bg-white text-gray-900 shadow-sm border-gray-200'
+                      : 'text-gray-600 hover:text-gray-900 border-transparent hover:border-gray-200 hover:bg-white/70'
                   }`}
                 >
                   Linear
                 </button>
                 <button
                   onClick={() => setViewMode('circular')}
-                  className={`px-4 py-1.5 rounded-md font-medium text-sm transition-all ${
+                  className={`px-4 py-1.5 rounded-full border text-sm font-medium transition-all ${
                     viewMode === 'circular'
-                      ? 'bg-gray-900 text-white shadow-sm'
-                      : 'text-gray-700 hover:text-gray-900'
+                      ? 'bg-white text-gray-900 shadow-sm border-gray-200'
+                      : 'text-gray-600 hover:text-gray-900 border-transparent hover:border-gray-200 hover:bg-white/70'
                   }`}
                 >
                   Circular
