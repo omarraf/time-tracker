@@ -166,16 +166,18 @@ export default function Timeline({
             onClick={() => onBlockClick(block)}
             title={`${block.label} (${formatTo12Hour(block.startTime)} - ${formatTo12Hour(block.endTime)})`}
           >
-            <div className="px-3 py-2 text-white font-medium text-sm">
-              <div className="flex items-center justify-between">
-                <span className="truncate">{block.label}</span>
-                {index === 0 && (
-                  <span className="text-xs opacity-75">
-                    {formatDuration(duration)}
-                  </span>
-                )}
+            {duration >= 15 && (
+              <div className="px-3 py-2 text-white font-medium text-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="truncate">{block.label}</span>
+                  {index === 0 && duration >= 30 && (
+                    <span className="text-xs opacity-75 whitespace-nowrap">
+                      {formatDuration(duration)}
+                    </span>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         );
       });

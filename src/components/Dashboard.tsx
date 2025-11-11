@@ -33,6 +33,7 @@ export default function Dashboard() {
   // Modal state
   const [showLabelModal, setShowLabelModal] = useState(false);
   const [pendingBlock, setPendingBlock] = useState<{ startTime: string; endTime: string } | null>(null);
+  const [editingBlock, setEditingBlock] = useState<TimeBlock | null>(null);
 
   // Current schedule
   const [currentScheduleId, setCurrentScheduleId] = useState<string | null>(null);
@@ -67,8 +68,8 @@ export default function Dashboard() {
     return () => unsubscribe();
   }, []);
 
-  // Auto-save when time blocks change
-  const saveCurrentSchedule = useCallback(async (blocks: TimeBlock[]) => {
+  // Manual save function
+  const handleSaveSchedule = async () => {
     if (!user || savingRef.current) return;
 
     savingRef.current = true;
@@ -77,7 +78,7 @@ export default function Dashboard() {
     try {
       const scheduleData = {
         name: 'My Schedule',
-        timeBlocks: blocks,
+        timeBlocks: timeBlocks,
         isDefault: true,
       };
 
@@ -97,17 +98,7 @@ export default function Dashboard() {
     } finally {
       savingRef.current = false;
     }
-  }, [user, currentScheduleId]);
-
-  useEffect(() => {
-    if (!user || isLoading || timeBlocks.length === 0) return;
-
-    const timeoutId = setTimeout(() => {
-      saveCurrentSchedule(timeBlocks);
-    }, 1000);
-
-    return () => clearTimeout(timeoutId);
-  }, [timeBlocks, user, isLoading, saveCurrentSchedule]);
+  };
 
   // Handle block creation from timeline
   const handleBlockCreated = (startTime: string, endTime: string) => {
@@ -123,30 +114,47 @@ export default function Dashboard() {
     setShowLabelModal(true);
   };
 
-  // Save the labeled block
+  // Save the labeled block (create or edit)
   const handleSaveBlock = (label: string, color: string) => {
-    if (!pendingBlock) return;
-
-    const newBlock: TimeBlock = {
-      id: crypto.randomUUID(),
-      startTime: pendingBlock.startTime,
-      endTime: pendingBlock.endTime,
-      label,
-      color,
-      order: timeBlocks.length,
-    };
-
-    setTimeBlocks(prev => sortTimeBlocks([...prev, newBlock]));
+    if (editingBlock) {
+      // Edit existing block
+      setTimeBlocks(prev =>
+        prev.map(b =>
+          b.id === editingBlock.id
+            ? { ...b, label, color }
+            : b
+        )
+      );
+      setEditingBlock(null);
+    } else if (pendingBlock) {
+      // Create new block
+      const newBlock: TimeBlock = {
+        id: crypto.randomUUID(),
+        startTime: pendingBlock.startTime,
+        endTime: pendingBlock.endTime,
+        label,
+        color,
+        order: timeBlocks.length,
+      };
+      setTimeBlocks(prev => sortTimeBlocks([...prev, newBlock]));
+      setPendingBlock(null);
+    }
     setShowLabelModal(false);
-    setPendingBlock(null);
+  };
+
+  // Handle block deletion
+  const handleDeleteBlock = () => {
+    if (editingBlock) {
+      setTimeBlocks(prev => prev.filter(b => b.id !== editingBlock.id));
+      setEditingBlock(null);
+      setShowLabelModal(false);
+    }
   };
 
   // Handle block click (for editing)
   const handleBlockClick = (block: TimeBlock) => {
-    const action = confirm(`Delete "${block.label}"?`);
-    if (action) {
-      setTimeBlocks(prev => prev.filter(b => b.id !== block.id));
-    }
+    setEditingBlock(block);
+    setShowLabelModal(true);
   };
 
   // Handle schedule switching
@@ -264,15 +272,12 @@ export default function Dashboard() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <header className="bg-white border-b border-gray-200 px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900">
+        <header className="bg-white border-b border-gray-200 px-4 sm:px-8 py-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
                 {currentRoute === 'dashboard' && 'Dashboard'}
                 {currentRoute === 'schedules' && 'My Schedules'}
-                {currentRoute === 'templates' && 'Templates'}
-                {currentRoute === 'history' && 'History'}
-                {currentRoute === 'analytics' && 'Analytics'}
                 {currentRoute === 'settings' && 'Settings'}
               </h2>
               {user && saveStatus && (
@@ -299,29 +304,41 @@ export default function Dashboard() {
               )}
             </div>
 
-            {/* View Controls */}
+            {/* Controls */}
             {currentRoute === 'dashboard' && (
-              <div className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-100/80 p-1 shadow-inner">
+              <div className="flex items-center gap-3 flex-shrink-0">
+                {/* Save Button */}
                 <button
-                  onClick={() => setViewMode('linear')}
-                  className={`px-4 py-1.5 rounded-full border text-sm font-medium transition-all ${
-                    viewMode === 'linear'
-                      ? 'bg-white text-gray-900 shadow-sm border-gray-200'
-                      : 'text-gray-600 hover:text-gray-900 border-transparent hover:border-gray-200 hover:bg-white/70'
-                  }`}
+                  onClick={handleSaveSchedule}
+                  disabled={savingRef.current}
+                  className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Linear
+                  {savingRef.current ? 'Saving...' : 'Save'}
                 </button>
-                <button
-                  onClick={() => setViewMode('circular')}
-                  className={`px-4 py-1.5 rounded-full border text-sm font-medium transition-all ${
-                    viewMode === 'circular'
-                      ? 'bg-white text-gray-900 shadow-sm border-gray-200'
-                      : 'text-gray-600 hover:text-gray-900 border-transparent hover:border-gray-200 hover:bg-white/70'
-                  }`}
-                >
-                  Circular
-                </button>
+
+                {/* View Toggle */}
+                <div className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-100/80 p-1 shadow-inner">
+                  <button
+                    onClick={() => setViewMode('linear')}
+                    className={`px-3 py-1.5 rounded-full border text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
+                      viewMode === 'linear'
+                        ? 'bg-white text-gray-900 shadow-sm border-gray-200'
+                        : 'text-gray-600 hover:text-gray-900 border-transparent hover:border-gray-200 hover:bg-white/70'
+                    }`}
+                  >
+                    Linear
+                  </button>
+                  <button
+                    onClick={() => setViewMode('circular')}
+                    className={`px-3 py-1.5 rounded-full border text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
+                      viewMode === 'circular'
+                        ? 'bg-white text-gray-900 shadow-sm border-gray-200'
+                        : 'text-gray-600 hover:text-gray-900 border-transparent hover:border-gray-200 hover:bg-white/70'
+                    }`}
+                  >
+                    Circular
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -367,17 +384,22 @@ export default function Dashboard() {
       </div>
 
       {/* Label Modal */}
-      {pendingBlock && (
+      {(pendingBlock || editingBlock) && (
         <LabelModal
           isOpen={showLabelModal}
-          startTime={pendingBlock.startTime}
-          endTime={pendingBlock.endTime}
+          startTime={editingBlock?.startTime || pendingBlock?.startTime || '00:00'}
+          endTime={editingBlock?.endTime || pendingBlock?.endTime || '00:00'}
           onClose={() => {
             setShowLabelModal(false);
             setPendingBlock(null);
+            setEditingBlock(null);
           }}
           onSave={handleSaveBlock}
+          onDelete={editingBlock ? handleDeleteBlock : undefined}
           availableColors={availableColors}
+          mode={editingBlock ? 'edit' : 'create'}
+          initialLabel={editingBlock?.label}
+          initialColor={editingBlock?.color}
         />
       )}
     </div>

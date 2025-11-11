@@ -25,9 +25,6 @@ export default function Sidebar({ currentRoute, onNavigate, userEmail }: Sidebar
   const navItems: Array<{ route: NavRoute; icon: string; label: string }> = [
     { route: 'dashboard', icon: '■', label: 'Dashboard' },
     { route: 'schedules', icon: '☰', label: 'Schedules' },
-    { route: 'templates', icon: '◫', label: 'Templates' },
-    { route: 'history', icon: '◷', label: 'History' },
-    { route: 'analytics', icon: '◔', label: 'Analytics' },
     { route: 'settings', icon: '◐', label: 'Settings' },
   ];
 

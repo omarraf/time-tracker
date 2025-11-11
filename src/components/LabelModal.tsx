@@ -8,7 +8,11 @@ interface LabelModalProps {
   endTime: string;
   onClose: () => void;
   onSave: (label: string, color: string) => void;
+  onDelete?: () => void;
   availableColors: string[];
+  mode?: 'create' | 'edit';
+  initialLabel?: string;
+  initialColor?: string;
 }
 
 export default function LabelModal({
@@ -17,10 +21,14 @@ export default function LabelModal({
   endTime,
   onClose,
   onSave,
+  onDelete,
   availableColors,
+  mode = 'create',
+  initialLabel = '',
+  initialColor,
 }: LabelModalProps) {
-  const [label, setLabel] = useState('');
-  const [selectedColor, setSelectedColor] = useState(availableColors[0]);
+  const [label, setLabel] = useState(initialLabel);
+  const [selectedColor, setSelectedColor] = useState(initialColor || availableColors[0]);
 
   const duration = calculateDuration(startTime, endTime);
 
@@ -65,7 +73,9 @@ export default function LabelModal({
   return (
     <Modal isOpen={isOpen} onRequestClose={onClose} style={modalStyles}>
       <div className="p-8">
-        <h3 className="text-2xl font-bold text-gray-900 mb-2">Create Time Block</h3>
+        <h3 className="text-2xl font-bold text-gray-900 mb-2">
+          {mode === 'edit' ? 'Edit Time Block' : 'Create Time Block'}
+        </h3>
         <div className="flex items-center gap-3 mb-6">
           <div className="text-sm text-gray-600">
             {formatTo12Hour(startTime)} - {formatTo12Hour(endTime)}
@@ -115,18 +125,31 @@ export default function LabelModal({
         </div>
 
         <div className="flex gap-3 mt-8">
+          {mode === 'edit' && onDelete && (
+            <button
+              onClick={() => {
+                if (confirm('Are you sure you want to delete this time block?')) {
+                  onDelete();
+                  onClose();
+                }
+              }}
+              className="px-6 py-3 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 active:scale-95 transition-all"
+            >
+              Delete
+            </button>
+          )}
           <button
             onClick={handleSave}
             disabled={!label.trim()}
             className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
           >
-            Create Block
+            {mode === 'edit' ? 'Save Changes' : 'Create Block'}
           </button>
           <button
             onClick={() => {
               onClose();
-              setLabel('');
-              setSelectedColor(availableColors[0]);
+              setLabel(initialLabel);
+              setSelectedColor(initialColor || availableColors[0]);
             }}
             className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 active:scale-95 transition-all"
           >

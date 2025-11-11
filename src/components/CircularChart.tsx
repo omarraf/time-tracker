@@ -7,6 +7,7 @@ import {
   snapToFiveMinutes,
   formatHourTo12Hour,
   formatTo12Hour,
+  formatDuration,
 } from '../utils/timeUtils';
 
 interface CircularChartProps {
@@ -24,10 +25,8 @@ export default function CircularChart({
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState<number | null>(null);
   const [dragProgress, setDragProgress] = useState(0);
-  const [selectionTimes, setSelectionTimes] = useState<{ start: number | null; end: number | null }>({
-    start: null,
-    end: null,
-  });
+  const [hoveredBlock, setHoveredBlock] = useState<TimeBlock | null>(null);
+  const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null);
   const [viewport, setViewport] = useState(() => ({
     width: typeof window !== 'undefined' ? window.innerWidth : 0,
     height: typeof window !== 'undefined' ? window.innerHeight : 0,
@@ -93,7 +92,6 @@ export default function CircularChart({
     const minutes = angleToMinutes(angle);
     setDragStart(minutes);
     setDragProgress(0);
-    setSelectionTimes({ start: minutes, end: minutes });
     lastDragMinutesRef.current = minutes;
     setIsDragging(true);
   };
@@ -113,7 +111,6 @@ export default function CircularChart({
 
     setDragProgress(prev => {
       const next = Math.max(0, Math.min(24 * 60, prev + diff));
-      setSelectionTimes({ start: dragStart, end: (dragStart + next) % (24 * 60) });
       return next;
     });
 
@@ -121,15 +118,10 @@ export default function CircularChart({
   }, [isDragging, dragStart, center]);
 
   const handleMouseUp = useCallback(() => {
-    if (isDragging && dragStart !== null) {
-      if (dragProgress >= 5) {
-        const startTime = minutesToTimeString(dragStart);
-        const endTime = minutesToTimeString((dragStart + dragProgress) % (24 * 60));
-        onBlockCreated(startTime, endTime);
-        setSelectionTimes({ start: dragStart, end: (dragStart + dragProgress) % (24 * 60) });
-      } else {
-        setSelectionTimes({ start: null, end: null });
-      }
+    if (isDragging && dragStart !== null && dragProgress >= 5) {
+      const startTime = minutesToTimeString(dragStart);
+      const endTime = minutesToTimeString((dragStart + dragProgress) % (24 * 60));
+      onBlockCreated(startTime, endTime);
     }
 
     lastDragMinutesRef.current = null;
@@ -289,7 +281,7 @@ export default function CircularChart({
         Z
       `;
 
-      // Calculate label position
+      // Calculate label position (center of arc)
       const midAngle = (startAngle + endAngle) / 2;
       const midAngleRad = ((midAngle - 90) * Math.PI) / 180;
       const labelRadius = (radius + innerRadius) / 2;
@@ -298,7 +290,6 @@ export default function CircularChart({
 
       return (
         <g key={block.id}>
-          <title>{`${block.label} (${formatTo12Hour(block.startTime)} - ${formatTo12Hour(block.endTime)})`}</title>
           <path
             d={path}
             fill={block.color}
@@ -306,6 +297,29 @@ export default function CircularChart({
             strokeWidth="2"
             className="cursor-pointer transition-opacity hover:opacity-80"
             onClick={() => onBlockClick(block)}
+            onMouseEnter={(e) => {
+              setHoveredBlock(block);
+              const rect = svgRef.current?.getBoundingClientRect();
+              if (rect) {
+                setTooltipPos({
+                  x: e.clientX - rect.left,
+                  y: e.clientY - rect.top,
+                });
+              }
+            }}
+            onMouseMove={(e) => {
+              const rect = svgRef.current?.getBoundingClientRect();
+              if (rect) {
+                setTooltipPos({
+                  x: e.clientX - rect.left,
+                  y: e.clientY - rect.top,
+                });
+              }
+            }}
+            onMouseLeave={() => {
+              setHoveredBlock(null);
+              setTooltipPos(null);
+            }}
           />
           {duration >= 30 && (
             <text
@@ -373,6 +387,22 @@ export default function CircularChart({
           strokeWidth="2"
           strokeDasharray="5,5"
         />
+        {/* Show drag times in center */}
+        <text
+          x={center}
+          y={center}
+          textAnchor="middle"
+          dominantBaseline="middle"
+          className="fill-gray-700"
+        >
+          <tspan className="text-xs font-medium fill-blue-600">
+            {formatTo12Hour(minutesToTimeString(startMinutes))}
+          </tspan>
+          <tspan className="text-xs font-medium fill-gray-500" dx="6">→</tspan>
+          <tspan className="text-xs font-semibold fill-purple-600" dx="6">
+            {formatTo12Hour(minutesToTimeString((startMinutes + duration) % (24 * 60)))}
+          </tspan>
+        </text>
       </g>
     );
   };
@@ -435,24 +465,40 @@ export default function CircularChart({
             {/* Hour labels */}
             {renderHourLabels()}
 
-            {/* Selection readout */}
-            {selectionTimes.start !== null && selectionTimes.end !== null && (
-              <text
-                x={center}
-                y={center + 8}
-                textAnchor="middle"
-                dominantBaseline="middle"
-                className="pointer-events-none select-none fill-gray-600"
-              >
-                <tspan className="text-xs font-medium fill-gray-500">
-                  {formatTo12Hour(minutesToTimeString(selectionTimes.start))}
-                </tspan>
-                <tspan className="text-sm font-semibold fill-gray-700" dx="8">
-                  {formatTo12Hour(minutesToTimeString(selectionTimes.end))}
-                </tspan>
-              </text>
+            {/* Tooltip */}
+            {hoveredBlock && tooltipPos && (
+              <g style={{ pointerEvents: 'none' }}>
+                <foreignObject
+                  x={tooltipPos.x + 10}
+                  y={tooltipPos.y - 40}
+                  width="200"
+                  height="80"
+                >
+                  <div
+                    style={{
+                      backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                      color: 'white',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      fontSize: '12px',
+                      fontWeight: '500',
+                      boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    <div style={{ fontWeight: '600', marginBottom: '4px' }}>
+                      {hoveredBlock.label}
+                    </div>
+                    <div style={{ fontSize: '11px', opacity: 0.9 }}>
+                      {formatTo12Hour(hoveredBlock.startTime)} - {formatTo12Hour(hoveredBlock.endTime)}
+                    </div>
+                    <div style={{ fontSize: '10px', opacity: 0.7, marginTop: '2px' }}>
+                      {formatDuration(calculateDuration(hoveredBlock.startTime, hoveredBlock.endTime))}
+                    </div>
+                  </div>
+                </foreignObject>
+              </g>
             )}
-
           </svg>
         </div>
       </div>
