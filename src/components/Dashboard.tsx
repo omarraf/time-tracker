@@ -7,6 +7,7 @@ import Timeline from './Timeline';
 import CircularChart from './CircularChart';
 import LabelModal from './LabelModal';
 import SchedulesPage from './SchedulesPage';
+import SettingsPage from './SettingsPage';
 import AuthButtons from './AuthButtons';
 import type { NavRoute, TimeBlock } from '../types/schedule';
 import {
@@ -37,6 +38,7 @@ export default function Dashboard() {
 
   // Current schedule
   const [currentScheduleId, setCurrentScheduleId] = useState<string | null>(null);
+  const [currentScheduleName, setCurrentScheduleName] = useState<string>('My Schedule');
 
   // Ref to track if we're currently saving
   const savingRef = useRef(false);
@@ -53,6 +55,7 @@ export default function Dashboard() {
           if (defaultSchedule) {
             setTimeBlocks(defaultSchedule.timeBlocks);
             setCurrentScheduleId(defaultSchedule.id);
+            setCurrentScheduleName(defaultSchedule.name);
           }
         } catch (error) {
           console.error('Error loading schedules:', error);
@@ -60,6 +63,7 @@ export default function Dashboard() {
       } else {
         setTimeBlocks([]);
         setCurrentScheduleId(null);
+        setCurrentScheduleName('My Schedule');
       }
 
       setIsLoading(false);
@@ -72,12 +76,18 @@ export default function Dashboard() {
   const handleSaveSchedule = async () => {
     if (!user || savingRef.current) return;
 
+    // Prompt for schedule title
+    const scheduleName = prompt('Enter a title for this schedule:', 'My Schedule');
+
+    // If user cancels, don't save
+    if (!scheduleName) return;
+
     savingRef.current = true;
     setSaveStatus('saving');
 
     try {
       const scheduleData = {
-        name: 'My Schedule',
+        name: scheduleName.trim() || 'My Schedule',
         timeBlocks: timeBlocks,
         isDefault: true,
       };
@@ -166,6 +176,7 @@ export default function Dashboard() {
       if (schedule) {
         setTimeBlocks(schedule.timeBlocks);
         setCurrentScheduleId(schedule.id);
+        setCurrentScheduleName(schedule.name);
         setCurrentRoute('dashboard'); // Navigate back to dashboard
       }
     } catch (error) {
@@ -276,7 +287,7 @@ export default function Dashboard() {
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0">
               <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
-                {currentRoute === 'dashboard' && 'Dashboard'}
+                {currentRoute === 'dashboard' && 'Analytics'}
                 {currentRoute === 'schedules' && 'My Schedules'}
                 {currentRoute === 'settings' && 'Settings'}
               </h2>
@@ -369,17 +380,12 @@ export default function Dashboard() {
           />
         )}
 
-        {currentRoute !== 'dashboard' && currentRoute !== 'schedules' && (
-          <div className="flex-1 flex items-center justify-center p-8">
-            <div className="text-center">
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                Coming Soon
-              </h3>
-              <p className="text-gray-600">
-                This feature is under development
-              </p>
-            </div>
-          </div>
+        {currentRoute === 'settings' && user && (
+          <SettingsPage
+            user={user}
+            timeBlocks={timeBlocks}
+            currentScheduleName={currentScheduleName}
+          />
         )}
       </div>
 
