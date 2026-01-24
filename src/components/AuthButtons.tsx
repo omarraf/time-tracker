@@ -259,17 +259,17 @@ export default function AuthButtons() {
         </div>
 
         {mode !== 'forgot' && (
-          <div className="flex gap-2 mb-6 bg-gray-100 p-1 rounded-xl">
+          <div className="flex gap-1 mb-6">
             <button
               type="button"
               onClick={() => {
                 setMode('signin');
                 clearForm();
               }}
-              className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+              className={`flex-1 px-4 py-2.5 text-sm font-semibold transition-all border-b-2 ${
                 mode === 'signin'
-                  ? 'bg-white text-blue-600 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-gray-200 text-gray-600 hover:text-gray-900 hover:border-gray-300'
               }`}
             >
               Sign In
@@ -280,10 +280,10 @@ export default function AuthButtons() {
                 setMode('signup');
                 clearForm();
               }}
-              className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+              className={`flex-1 px-4 py-2.5 text-sm font-semibold transition-all border-b-2 ${
                 mode === 'signup'
-                  ? 'bg-white text-blue-600 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-gray-200 text-gray-600 hover:text-gray-900 hover:border-gray-300'
               }`}
             >
               Sign Up
@@ -328,7 +328,7 @@ export default function AuthButtons() {
                   setMode('forgot');
                   clearForm();
                 }}
-                className="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors bg-transparent border-none cursor-pointer p-0"
+                className="text-sm text-blue-600 hover:text-blue-700 hover:underline transition-colors"
               >
                 Forgot password?
               </button>

@@ -15,7 +15,9 @@ import {
   updateSchedule,
   getDefaultSchedule,
   getSchedule,
+  getUserSchedules,
 } from '../services/scheduleService';
+import type { Schedule } from '../types/schedule';
 import { validateTimeBlock, sortTimeBlocks } from '../utils/timeUtils';
 
 const availableColors = [
@@ -25,11 +27,13 @@ const availableColors = [
 
 export default function Dashboard() {
   const [user, setUser] = useState<User | null>(null);
+  const [isGuestMode, setIsGuestMode] = useState(false);
   const [currentRoute, setCurrentRoute] = useState<NavRoute>('dashboard');
   const [timeBlocks, setTimeBlocks] = useState<TimeBlock[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error' | null>(null);
   const [viewMode, setViewMode] = useState<'linear' | 'circular'>('linear');
+  const [showSignInPrompt, setShowSignInPrompt] = useState(false);
 
   // Modal state
   const [showLabelModal, setShowLabelModal] = useState(false);
@@ -39,6 +43,8 @@ export default function Dashboard() {
   // Current schedule
   const [currentScheduleId, setCurrentScheduleId] = useState<string | null>(null);
   const [currentScheduleName, setCurrentScheduleName] = useState<string>('My Schedule');
+  const [showScheduleDropdown, setShowScheduleDropdown] = useState(false);
+  const [allSchedules, setAllSchedules] = useState<Schedule[]>([]);
 
   // Ref to track if we're currently saving
   const savingRef = useRef(false);
@@ -51,7 +57,13 @@ export default function Dashboard() {
 
       if (currentUser) {
         try {
-          const defaultSchedule = await getDefaultSchedule(currentUser.uid);
+          const [defaultSchedule, schedules] = await Promise.all([
+            getDefaultSchedule(currentUser.uid),
+            getUserSchedules(currentUser.uid),
+          ]);
+
+          setAllSchedules(schedules);
+
           if (defaultSchedule) {
             setTimeBlocks(defaultSchedule.timeBlocks);
             setCurrentScheduleId(defaultSchedule.id);
@@ -64,6 +76,7 @@ export default function Dashboard() {
         setTimeBlocks([]);
         setCurrentScheduleId(null);
         setCurrentScheduleName('My Schedule');
+        setAllSchedules([]);
       }
 
       setIsLoading(false);
@@ -74,7 +87,13 @@ export default function Dashboard() {
 
   // Manual save function
   const handleSaveSchedule = async () => {
-    if (!user || savingRef.current) return;
+    // If guest mode, show sign-in prompt
+    if (!user) {
+      setShowSignInPrompt(true);
+      return;
+    }
+
+    if (savingRef.current) return;
 
     // Prompt for schedule title
     const scheduleName = prompt('Enter a title for this schedule:', 'My Schedule');
@@ -177,11 +196,54 @@ export default function Dashboard() {
         setTimeBlocks(schedule.timeBlocks);
         setCurrentScheduleId(schedule.id);
         setCurrentScheduleName(schedule.name);
-        setCurrentRoute('dashboard'); // Navigate back to dashboard
+        setShowScheduleDropdown(false);
+        if (currentRoute !== 'dashboard') {
+          setCurrentRoute('dashboard'); // Navigate back to dashboard if not already there
+        }
       }
     } catch (error) {
       console.error('Error loading schedule:', error);
       alert('Failed to load schedule');
+    }
+  };
+
+  // Clear all time blocks
+  const handleClearAllBlocks = () => {
+    if (!confirm('Are you sure you want to clear all time blocks from this schedule? This cannot be undone.')) {
+      return;
+    }
+    setTimeBlocks([]);
+  };
+
+  // Create new schedule
+  const handleCreateNewSchedule = async () => {
+    if (!user) {
+      setShowSignInPrompt(true);
+      return;
+    }
+
+    const scheduleName = prompt('Enter a name for the new schedule:', 'New Schedule');
+    if (!scheduleName) return;
+
+    try {
+      const newId = await saveSchedule(user.uid, {
+        name: scheduleName.trim(),
+        timeBlocks: [],
+        isDefault: false,
+      });
+
+      // Refresh schedules list
+      const schedules = await getUserSchedules(user.uid);
+      setAllSchedules(schedules);
+
+      // Switch to new schedule
+      setCurrentScheduleId(newId);
+      setCurrentScheduleName(scheduleName.trim());
+      setTimeBlocks([]);
+      setShowScheduleDropdown(false);
+    } catch (error) {
+      console.error('Error creating schedule:', error);
+      alert('Failed to create schedule');
     }
   };
 
@@ -197,7 +259,7 @@ export default function Dashboard() {
   }
 
   // Landing page for non-authenticated users
-  if (!user) {
+  if (!user && !isGuestMode) {
     return (
       <div className="flex h-screen overflow-hidden bg-gradient-to-br from-gray-50 via-white to-gray-50">
         <AuthButtons />
@@ -262,8 +324,25 @@ export default function Dashboard() {
               </div>
             )}
 
-            <div className="text-center">
+            <div className="text-center space-y-4">
               <p className="text-gray-600">Get started by signing in above</p>
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-300"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-4 bg-gradient-to-br from-gray-50 via-white to-gray-50 text-gray-500">or</span>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsGuestMode(true)}
+                className="px-6 py-3 bg-white border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 hover:border-gray-400 transition-all shadow-sm hover:shadow-md"
+              >
+                Try Without Signing In
+              </button>
+              <p className="text-xs text-gray-500">
+                Try the app now, sign in later to save your schedules
+              </p>
             </div>
           </div>
         </div>
@@ -278,19 +357,106 @@ export default function Dashboard() {
         currentRoute={currentRoute}
         onNavigate={setCurrentRoute}
         userEmail={user?.email}
+        isGuestMode={isGuestMode}
       />
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Guest Mode Banner */}
+        {!user && isGuestMode && (
+          <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className="text-sm font-medium">
+                You're in guest mode. Sign in to save your schedules!
+              </span>
+            </div>
+            <AuthButtons />
+          </div>
+        )}
+
         {/* Header */}
         <header className="bg-white border-b border-gray-200 px-4 sm:px-8 py-4">
           <div className="flex items-center justify-between gap-4">
-            <div className="min-w-0">
-              <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
-                {currentRoute === 'dashboard' && 'Analytics'}
-                {currentRoute === 'schedules' && 'My Schedules'}
-                {currentRoute === 'settings' && 'Settings'}
-              </h2>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-3">
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
+                  {currentRoute === 'dashboard' && 'Analytics'}
+                  {currentRoute === 'schedules' && 'My Schedules'}
+                  {currentRoute === 'settings' && 'Settings'}
+                </h2>
+
+                {/* Schedule Dropdown - only on Analytics page */}
+                {currentRoute === 'dashboard' && user && (
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowScheduleDropdown(!showScheduleDropdown)}
+                      className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-colors"
+                    >
+                      <span className="truncate max-w-[150px]">{currentScheduleName}</span>
+                      <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+
+                    {/* Dropdown Menu */}
+                    {showScheduleDropdown && (
+                      <>
+                        <div className="fixed inset-0 z-10" onClick={() => setShowScheduleDropdown(false)} />
+                        <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-20 max-h-96 overflow-y-auto">
+                          {/* Current Schedules */}
+                          {allSchedules.map(schedule => (
+                            <button
+                              key={schedule.id}
+                              onClick={() => handleScheduleSelect(schedule.id)}
+                              className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 transition-colors flex items-center justify-between ${
+                                schedule.id === currentScheduleId ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
+                              }`}
+                            >
+                              <span className="truncate flex-1">{schedule.name}</span>
+                              {schedule.id === currentScheduleId && (
+                                <svg className="w-4 h-4 text-blue-600 flex-shrink-0 ml-2" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                </svg>
+                              )}
+                              <span className="text-xs text-gray-500 ml-2">({schedule.timeBlocks.length})</span>
+                            </button>
+                          ))}
+
+                          {/* Divider */}
+                          <div className="border-t border-gray-200 my-2" />
+
+                          {/* Actions */}
+                          <button
+                            onClick={handleCreateNewSchedule}
+                            className="w-full px-4 py-2 text-left text-sm text-blue-600 hover:bg-blue-50 transition-colors flex items-center gap-2"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                            </svg>
+                            New Schedule
+                          </button>
+                          <button
+                            onClick={() => {
+                              setShowScheduleDropdown(false);
+                              handleClearAllBlocks();
+                            }}
+                            className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            Clear All Blocks
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+
               {user && saveStatus && (
                 <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
                   {saveStatus === 'saved' && (
@@ -372,20 +538,63 @@ export default function Dashboard() {
           />
         )}
 
-        {currentRoute === 'schedules' && user && (
-          <SchedulesPage
-            user={user}
-            currentScheduleId={currentScheduleId}
-            onScheduleSelect={handleScheduleSelect}
-          />
+        {currentRoute === 'schedules' && (
+          <>
+            {user ? (
+              <SchedulesPage
+                user={user}
+                currentScheduleId={currentScheduleId}
+                onScheduleSelect={handleScheduleSelect}
+              />
+            ) : (
+              <div className="flex-1 flex items-center justify-center p-8">
+                <div className="text-center max-w-md">
+                  <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                    Sign In to View Schedules
+                  </h3>
+                  <p className="text-gray-600 mb-6">
+                    Create an account or sign in to save and manage multiple schedules
+                  </p>
+                  <AuthButtons />
+                </div>
+              </div>
+            )}
+          </>
         )}
 
-        {currentRoute === 'settings' && user && (
-          <SettingsPage
-            user={user}
-            timeBlocks={timeBlocks}
-            currentScheduleName={currentScheduleName}
-          />
+        {currentRoute === 'settings' && (
+          <>
+            {user ? (
+              <SettingsPage
+                user={user}
+                timeBlocks={[]}
+                currentScheduleName=""
+              />
+            ) : (
+              <div className="flex-1 flex items-center justify-center p-8">
+                <div className="text-center max-w-md">
+                  <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                    Sign In to Access Settings
+                  </h3>
+                  <p className="text-gray-600 mb-6">
+                    Sign in to manage your profile, export schedules, and more
+                  </p>
+                  <AuthButtons />
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -407,6 +616,47 @@ export default function Dashboard() {
           initialLabel={editingBlock?.label}
           initialColor={editingBlock?.color}
         />
+      )}
+
+      {/* Sign-In Prompt Modal */}
+      {showSignInPrompt && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 relative">
+            <button
+              onClick={() => setShowSignInPrompt(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            <div className="text-center">
+              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                </svg>
+              </div>
+
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                Sign In to Save
+              </h3>
+              <p className="text-gray-600 mb-6">
+                Create a free account to save your schedules and access them from anywhere
+              </p>
+
+              <div className="space-y-3">
+                <AuthButtons />
+                <button
+                  onClick={() => setShowSignInPrompt(false)}
+                  className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+                >
+                  Continue without saving
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -1,23 +1,46 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { User } from 'firebase/auth';
-import type { TimeBlock } from '../types/schedule';
+import type { Schedule } from '../types/schedule';
 import { deleteUserAccount } from '../services/userService';
+import { getUserSchedules } from '../services/scheduleService';
 
 interface SettingsPageProps {
   user: User;
-  timeBlocks: TimeBlock[];
-  currentScheduleName?: string;
+  timeBlocks: never[]; // Deprecated, keeping for compatibility
+  currentScheduleName?: string; // Deprecated, keeping for compatibility
 }
 
-export default function SettingsPage({ user, timeBlocks, currentScheduleName }: SettingsPageProps) {
+export default function SettingsPage({ user }: SettingsPageProps) {
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
+  const [allSchedules, setAllSchedules] = useState<Schedule[]>([]);
+  const [selectedScheduleId, setSelectedScheduleId] = useState<string>('');
+
+  // Load all schedules
+  useEffect(() => {
+    const loadSchedules = async () => {
+      try {
+        const schedules = await getUserSchedules(user.uid);
+        setAllSchedules(schedules);
+        if (schedules.length > 0) {
+          setSelectedScheduleId(schedules[0].id);
+        }
+      } catch (error) {
+        console.error('Error loading schedules:', error);
+      }
+    };
+    loadSchedules();
+  }, [user.uid]);
+
+  const selectedSchedule = allSchedules.find(s => s.id === selectedScheduleId);
 
   // Export as JSON
   const handleExportJSON = () => {
+    if (!selectedSchedule) return;
+
     const exportData = {
-      scheduleName: currentScheduleName || 'My Schedule',
+      scheduleName: selectedSchedule.name,
       exportDate: new Date().toISOString().split('T')[0],
-      timeBlocks: timeBlocks.map(({ label, startTime, endTime, color }) => ({
+      timeBlocks: selectedSchedule.timeBlocks.map(({ label, startTime, endTime, color }) => ({
         label,
         startTime,
         endTime,
@@ -29,7 +52,7 @@ export default function SettingsPage({ user, timeBlocks, currentScheduleName }: 
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${currentScheduleName || 'schedule'}-${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `${selectedSchedule.name}-${new Date().toISOString().split('T')[0]}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -38,8 +61,10 @@ export default function SettingsPage({ user, timeBlocks, currentScheduleName }: 
 
   // Export as CSV
   const handleExportCSV = () => {
+    if (!selectedSchedule) return;
+
     const headers = ['Label', 'Start Time', 'End Time', 'Duration (hours)', 'Color'];
-    const rows = timeBlocks.map(block => {
+    const rows = selectedSchedule.timeBlocks.map(block => {
       const [startHour, startMin] = block.startTime.split(':').map(Number);
       const [endHour, endMin] = block.endTime.split(':').map(Number);
       const duration = ((endHour * 60 + endMin) - (startHour * 60 + startMin)) / 60;
@@ -62,7 +87,7 @@ export default function SettingsPage({ user, timeBlocks, currentScheduleName }: 
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${currentScheduleName || 'schedule'}-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `${selectedSchedule.name}-${new Date().toISOString().split('T')[0]}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -135,44 +160,68 @@ export default function SettingsPage({ user, timeBlocks, currentScheduleName }: 
           </h3>
 
           <p className="text-sm text-gray-600 mb-4">
-            Download your current schedule in different formats
+            Select a schedule to export in different formats
           </p>
 
-          <div className="space-y-3">
-            <button
-              onClick={handleExportJSON}
-              disabled={timeBlocks.length === 0}
-              className="w-full px-4 py-3 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between group"
-            >
-              <span className="flex items-center gap-2">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                Export as JSON
-              </span>
-              <span className="text-xs text-blue-600 group-hover:text-blue-700">Best for backup & re-import</span>
-            </button>
+          {/* Schedule Selector */}
+          {allSchedules.length > 0 ? (
+            <>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Choose Schedule</label>
+                <select
+                  value={selectedScheduleId}
+                  onChange={(e) => setSelectedScheduleId(e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  {allSchedules.map(schedule => (
+                    <option key={schedule.id} value={schedule.id}>
+                      {schedule.name} ({schedule.timeBlocks.length} blocks)
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-            <button
-              onClick={handleExportCSV}
-              disabled={timeBlocks.length === 0}
-              className="w-full px-4 py-3 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between group"
-            >
-              <span className="flex items-center gap-2">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                </svg>
-                Export as CSV
-              </span>
-              <span className="text-xs text-green-600 group-hover:text-green-700">Open in Excel/Sheets</span>
-            </button>
+              <div className="space-y-3">
+                <button
+                  onClick={handleExportJSON}
+                  disabled={!selectedSchedule || selectedSchedule.timeBlocks.length === 0}
+                  className="w-full px-4 py-3 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between group"
+                >
+                  <span className="flex items-center gap-2">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Export as JSON
+                  </span>
+                  <span className="text-xs text-blue-600 group-hover:text-blue-700">Best for backup & re-import</span>
+                </button>
 
-            {timeBlocks.length === 0 && (
-              <p className="text-xs text-gray-500 mt-2">
-                Add some time blocks to your schedule before exporting
-              </p>
-            )}
-          </div>
+                <button
+                  onClick={handleExportCSV}
+                  disabled={!selectedSchedule || selectedSchedule.timeBlocks.length === 0}
+                  className="w-full px-4 py-3 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between group"
+                >
+                  <span className="flex items-center gap-2">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    Export as CSV
+                  </span>
+                  <span className="text-xs text-green-600 group-hover:text-green-700">Open in Excel/Sheets</span>
+                </button>
+
+                {selectedSchedule && selectedSchedule.timeBlocks.length === 0 && (
+                  <p className="text-xs text-gray-500 mt-2">
+                    This schedule is empty. Add some time blocks before exporting.
+                  </p>
+                )}
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-gray-500">
+              No schedules available. Create a schedule to export.
+            </p>
+          )}
         </section>
 
         {/* Privacy & Data Section */}

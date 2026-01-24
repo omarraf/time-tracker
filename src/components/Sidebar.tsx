@@ -6,6 +6,7 @@ interface SidebarProps {
   currentRoute: NavRoute;
   onNavigate: (route: NavRoute) => void;
   userEmail?: string | null;
+  isGuestMode?: boolean;
 }
 
 const handleSignOut = async () => {
@@ -19,7 +20,7 @@ const handleSignOut = async () => {
   }
 };
 
-export default function Sidebar({ currentRoute, onNavigate, userEmail }: SidebarProps) {
+export default function Sidebar({ currentRoute, onNavigate, userEmail, isGuestMode }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const navItems: Array<{ route: NavRoute; label: string; renderIcon: () => React.ReactElement }> = [
@@ -109,36 +110,61 @@ export default function Sidebar({ currentRoute, onNavigate, userEmail }: Sidebar
         ))}
       </nav>
 
-      {/* User Info */}
-      {userEmail && (
+      {/* User Info or Guest Info */}
+      {(userEmail || isGuestMode) && (
         <div className="p-3 border-t border-gray-200 space-y-2">
           {!isCollapsed ? (
             <>
-              <div className="flex items-center gap-3 px-3 py-2 bg-gray-50 rounded-lg">
-                <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-semibold">
-                  {userEmail[0].toUpperCase()}
+              {userEmail ? (
+                <>
+                  <div className="flex items-center gap-3 px-3 py-2 bg-gray-50 rounded-lg">
+                    <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-semibold">
+                      {userEmail[0].toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-gray-900 truncate">{userEmail}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleSignOut}
+                    className="w-full px-3 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors text-sm"
+                  >
+                    Sign Out
+                  </button>
+                </>
+              ) : (
+                <div className="flex items-center gap-3 px-3 py-2 bg-amber-50 rounded-lg border border-amber-200">
+                  <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 text-sm font-semibold">
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-amber-900">Guest Mode</p>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-gray-900 truncate">{userEmail}</p>
-                </div>
-              </div>
-              <button
-                onClick={handleSignOut}
-                className="w-full px-3 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors text-sm"
-              >
-                Sign Out
-              </button>
+              )}
             </>
           ) : (
-            <button
-              onClick={handleSignOut}
-              className="w-full p-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center"
-              title="Sign Out"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
-            </button>
+            <>
+              {userEmail ? (
+                <button
+                  onClick={handleSignOut}
+                  className="w-full p-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center"
+                  title="Sign Out"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
+                </button>
+              ) : (
+                <div className="w-full p-2 bg-amber-100 text-amber-600 rounded-lg flex items-center justify-center" title="Guest Mode">
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
