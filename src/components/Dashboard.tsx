@@ -123,6 +123,9 @@ export default function Dashboard() {
     } catch (error) {
       console.error('Error saving schedule:', error);
       setSaveStatus('error');
+      if (error instanceof Error && error.message.includes('Maximum 10 schedules')) {
+        alert(error.message);
+      }
       setTimeout(() => setSaveStatus(null), 3000);
     } finally {
       savingRef.current = false;
@@ -243,7 +246,11 @@ export default function Dashboard() {
       setShowScheduleDropdown(false);
     } catch (error) {
       console.error('Error creating schedule:', error);
-      alert('Failed to create schedule');
+      if (error instanceof Error && error.message.includes('Maximum 10 schedules')) {
+        alert(error.message);
+      } else {
+        alert('Failed to create schedule');
+      }
     }
   };
 
@@ -383,12 +390,12 @@ export default function Dashboard() {
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-3">
                 <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
-                  {currentRoute === 'dashboard' && 'Analytics'}
+                  {currentRoute === 'dashboard' && 'Schedule Editor'}
                   {currentRoute === 'schedules' && 'My Schedules'}
                   {currentRoute === 'settings' && 'Settings'}
                 </h2>
 
-                {/* Schedule Dropdown - only on Analytics page */}
+                {/* Schedule Dropdown - only on Schedule Editor page */}
                 {currentRoute === 'dashboard' && user && (
                   <div className="relative">
                     <button
@@ -405,51 +412,57 @@ export default function Dashboard() {
                     {showScheduleDropdown && (
                       <>
                         <div className="fixed inset-0 z-10" onClick={() => setShowScheduleDropdown(false)} />
-                        <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-20 max-h-96 overflow-y-auto">
+                        <div className="absolute top-full left-0 mt-2 w-72 bg-white rounded-xl shadow-xl border border-gray-200 py-1 z-20 max-h-96 overflow-y-auto">
                           {/* Current Schedules */}
-                          {allSchedules.map(schedule => (
-                            <button
-                              key={schedule.id}
-                              onClick={() => handleScheduleSelect(schedule.id)}
-                              className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 transition-colors flex items-center justify-between ${
-                                schedule.id === currentScheduleId ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
-                              }`}
-                            >
-                              <span className="truncate flex-1">{schedule.name}</span>
-                              {schedule.id === currentScheduleId && (
-                                <svg className="w-4 h-4 text-blue-600 flex-shrink-0 ml-2" fill="currentColor" viewBox="0 0 20 20">
-                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                </svg>
-                              )}
-                              <span className="text-xs text-gray-500 ml-2">({schedule.timeBlocks.length})</span>
-                            </button>
-                          ))}
+                          <div className="px-2 py-1">
+                            {allSchedules.map(schedule => (
+                              <button
+                                key={schedule.id}
+                                onClick={() => handleScheduleSelect(schedule.id)}
+                                className={`w-full px-3 py-2.5 text-left text-sm rounded-lg transition-colors flex items-center justify-between group ${
+                                  schedule.id === currentScheduleId ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                  {schedule.id === currentScheduleId && (
+                                    <svg className="w-4 h-4 text-blue-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                    </svg>
+                                  )}
+                                  <span className="truncate font-medium">{schedule.name}</span>
+                                </div>
+                                <span className="text-xs text-gray-500 ml-2 flex-shrink-0">{schedule.timeBlocks.length} blocks</span>
+                              </button>
+                            ))}
+                          </div>
 
                           {/* Divider */}
-                          <div className="border-t border-gray-200 my-2" />
+                          <div className="h-px bg-gray-200 my-1" />
 
                           {/* Actions */}
-                          <button
-                            onClick={handleCreateNewSchedule}
-                            className="w-full px-4 py-2 text-left text-sm text-blue-600 hover:bg-blue-50 transition-colors flex items-center gap-2"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                            </svg>
-                            New Schedule
-                          </button>
-                          <button
-                            onClick={() => {
-                              setShowScheduleDropdown(false);
-                              handleClearAllBlocks();
-                            }}
-                            className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                            Clear All Blocks
-                          </button>
+                          <div className="px-2 py-1">
+                            <button
+                              onClick={handleCreateNewSchedule}
+                              className="w-full px-3 py-2.5 text-left text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex items-center gap-2 font-medium"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                              </svg>
+                              New Schedule
+                            </button>
+                            <button
+                              onClick={() => {
+                                setShowScheduleDropdown(false);
+                                handleClearAllBlocks();
+                              }}
+                              className="w-full px-3 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2 font-medium"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                              Clear All Blocks
+                            </button>
+                          </div>
                         </div>
                       </>
                     )}

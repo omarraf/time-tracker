@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { User } from 'firebase/auth';
 import type { Schedule } from '../types/schedule';
-import { deleteUserAccount } from '../services/userService';
 import { getUserSchedules } from '../services/scheduleService';
 
 interface SettingsPageProps {
@@ -11,7 +10,6 @@ interface SettingsPageProps {
 }
 
 export default function SettingsPage({ user }: SettingsPageProps) {
-  const [deleteConfirmation, setDeleteConfirmation] = useState('');
   const [allSchedules, setAllSchedules] = useState<Schedule[]>([]);
   const [selectedScheduleId, setSelectedScheduleId] = useState<string>('');
 
@@ -94,25 +92,35 @@ export default function SettingsPage({ user }: SettingsPageProps) {
     URL.revokeObjectURL(url);
   };
 
-  // Handle account deletion
-  const handleDeleteAccount = async () => {
-    if (deleteConfirmation !== 'DELETE') {
-      alert('Please type DELETE to confirm account deletion');
-      return;
-    }
+  // Export all schedules as JSON
+  const handleExportAllJSON = () => {
+    if (allSchedules.length === 0) return;
 
-    if (!confirm('This will permanently delete your account and all your schedules. This action cannot be undone. Continue?')) {
-      return;
-    }
+    const exportData = {
+      exportDate: new Date().toISOString().split('T')[0],
+      totalSchedules: allSchedules.length,
+      schedules: allSchedules.map(schedule => ({
+        name: schedule.name,
+        timeBlocks: schedule.timeBlocks.map(({ label, startTime, endTime, color }) => ({
+          label,
+          startTime,
+          endTime,
+          color,
+        })),
+      })),
+    };
 
-    try {
-      await deleteUserAccount(user);
-      // User will be signed out automatically
-    } catch (error) {
-      console.error('Error deleting account:', error);
-      alert('Failed to delete account. Please try again or contact support.');
-    }
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `all-schedules-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
+
 
   return (
     <div className="flex-1 overflow-y-auto p-4 sm:p-8">
@@ -131,13 +139,6 @@ export default function SettingsPage({ user }: SettingsPageProps) {
               <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
               <div className="px-4 py-2.5 bg-gray-50 rounded-lg border border-gray-200 text-gray-900">
                 {user.email}
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">User ID</label>
-              <div className="px-4 py-2.5 bg-gray-50 rounded-lg border border-gray-200 text-gray-600 font-mono text-xs break-all">
-                {user.uid}
               </div>
             </div>
 
@@ -210,6 +211,33 @@ export default function SettingsPage({ user }: SettingsPageProps) {
                   <span className="text-xs text-green-600 group-hover:text-green-700">Open in Excel/Sheets</span>
                 </button>
 
+                {/* Divider */}
+                <div className="relative my-2">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-gray-200"></div>
+                  </div>
+                  <div className="relative flex justify-center text-xs">
+                    <span className="px-2 bg-white text-gray-500">or export all</span>
+                  </div>
+                </div>
+
+                {/* Export All Schedules */}
+                <button
+                  onClick={handleExportAllJSON}
+                  disabled={allSchedules.length === 0}
+                  className="w-full px-4 py-3 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between group"
+                >
+                  <span className="flex items-center gap-2">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Export All Schedules
+                  </span>
+                  <span className="text-xs text-purple-600 group-hover:text-purple-700">
+                    {allSchedules.length} schedule{allSchedules.length !== 1 ? 's' : ''}
+                  </span>
+                </button>
+
                 {selectedSchedule && selectedSchedule.timeBlocks.length === 0 && (
                   <p className="text-xs text-gray-500 mt-2">
                     This schedule is empty. Add some time blocks before exporting.
@@ -252,32 +280,6 @@ export default function SettingsPage({ user }: SettingsPageProps) {
               </ul>
             </div>
 
-            <div className="pt-4 border-t border-gray-200">
-              <h4 className="font-medium text-gray-900 mb-2 text-sm">Delete Account</h4>
-              <p className="text-sm text-gray-600 mb-3">
-                Permanently delete your account and all associated schedules. This action cannot be undone.
-              </p>
-
-              <div className="bg-red-50 rounded-lg p-4 border border-red-200">
-                <label className="block text-sm font-medium text-red-900 mb-2">
-                  Type <span className="font-mono font-bold">DELETE</span> to confirm:
-                </label>
-                <input
-                  type="text"
-                  value={deleteConfirmation}
-                  onChange={(e) => setDeleteConfirmation(e.target.value)}
-                  placeholder="DELETE"
-                  className="w-full px-3 py-2 border border-red-300 rounded-lg mb-3 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                />
-                <button
-                  onClick={handleDeleteAccount}
-                  disabled={deleteConfirmation !== 'DELETE'}
-                  className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Delete My Account
-                </button>
-              </div>
-            </div>
           </div>
         </section>
       </div>

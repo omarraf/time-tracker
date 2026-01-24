@@ -7,6 +7,7 @@ import {
   duplicateSchedule,
   setDefaultSchedule,
   saveSchedule,
+  updateSchedule,
 } from '../services/scheduleService';
 import { formatTo12Hour } from '../utils/timeUtils';
 
@@ -25,6 +26,8 @@ export default function SchedulesPage({
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [newScheduleName, setNewScheduleName] = useState('');
+  const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
+  const [editingScheduleName, setEditingScheduleName] = useState('');
 
   // Load schedules
   useEffect(() => {
@@ -58,7 +61,11 @@ export default function SchedulesPage({
       onScheduleSelect(newId);
     } catch (error) {
       console.error('Error creating schedule:', error);
-      alert('Failed to create schedule');
+      if (error instanceof Error && error.message.includes('Maximum 10 schedules')) {
+        alert(error.message);
+      } else {
+        alert('Failed to create schedule');
+      }
     }
   };
 
@@ -69,7 +76,11 @@ export default function SchedulesPage({
       alert('Schedule duplicated successfully');
     } catch (error) {
       console.error('Error duplicating schedule:', error);
-      alert('Failed to duplicate schedule');
+      if (error instanceof Error && error.message.includes('Maximum 10 schedules')) {
+        alert(error.message);
+      } else {
+        alert('Failed to duplicate schedule');
+      }
     }
   };
 
@@ -103,6 +114,35 @@ export default function SchedulesPage({
     }
   };
 
+  const handleStartEdit = (scheduleId: string, currentName: string) => {
+    setEditingScheduleId(scheduleId);
+    setEditingScheduleName(currentName);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingScheduleId(null);
+    setEditingScheduleName('');
+  };
+
+  const handleSaveEdit = async (scheduleId: string) => {
+    if (!editingScheduleName.trim()) {
+      alert('Schedule name cannot be empty');
+      return;
+    }
+
+    try {
+      await updateSchedule(scheduleId, user.uid, {
+        name: editingScheduleName.trim(),
+      });
+      await loadSchedules();
+      setEditingScheduleId(null);
+      setEditingScheduleName('');
+    } catch (error) {
+      console.error('Error updating schedule name:', error);
+      alert('Failed to update schedule name');
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex-1 flex items-center justify-center p-8">
@@ -122,12 +162,18 @@ export default function SchedulesPage({
           <div>
             <h3 className="text-xl font-bold text-gray-900">Your Schedules</h3>
             <p className="text-sm text-gray-600 mt-1">
-              Manage your time schedules and templates
+              Manage your time schedules and templates {schedules.length > 0 && (
+                <span className={`ml-2 font-medium ${schedules.length >= 10 ? 'text-red-600' : schedules.length >= 8 ? 'text-amber-600' : 'text-gray-600'}`}>
+                  ({schedules.length}/10 schedules)
+                </span>
+              )}
             </p>
           </div>
           <button
             onClick={() => setIsCreating(true)}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
+            disabled={schedules.length >= 10}
+            className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            title={schedules.length >= 10 ? 'Maximum 10 schedules reached' : 'Create a new schedule'}
           >
             <span>+ New Schedule</span>
           </button>
@@ -198,21 +244,62 @@ export default function SchedulesPage({
                 <div className="p-6">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h4 className="text-lg font-semibold text-gray-900">
-                          {schedule.name}
-                        </h4>
-                        {schedule.isDefault && (
-                          <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded">
-                            Default
-                          </span>
-                        )}
-                        {schedule.id === currentScheduleId && (
-                          <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded">
-                            Active
-                          </span>
-                        )}
-                      </div>
+                      {editingScheduleId === schedule.id ? (
+                        // Edit mode
+                        <div className="mb-2">
+                          <div className="flex gap-2 items-center">
+                            <input
+                              type="text"
+                              value={editingScheduleName}
+                              onChange={(e) => setEditingScheduleName(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleSaveEdit(schedule.id);
+                                if (e.key === 'Escape') handleCancelEdit();
+                              }}
+                              className="flex-1 px-3 py-1.5 border-2 border-blue-500 rounded-lg focus:outline-none text-lg font-semibold"
+                              autoFocus
+                            />
+                            <button
+                              onClick={() => handleSaveEdit(schedule.id)}
+                              className="px-3 py-1.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors text-sm"
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={handleCancelEdit}
+                              className="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors text-sm"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        // View mode
+                        <div className="flex items-center gap-3 mb-2">
+                          <h4 className="text-lg font-semibold text-gray-900">
+                            {schedule.name}
+                          </h4>
+                          <button
+                            onClick={() => handleStartEdit(schedule.id, schedule.name)}
+                            className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                            title="Edit schedule name"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                            </svg>
+                          </button>
+                          {schedule.isDefault && (
+                            <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded">
+                              Default
+                            </span>
+                          )}
+                          {schedule.id === currentScheduleId && (
+                            <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded">
+                              Active
+                            </span>
+                          )}
+                        </div>
+                      )}
                       <div className="flex items-center gap-4 text-sm text-gray-600">
                         <span>{schedule.timeBlocks.length} time blocks</span>
                         <span>•</span>

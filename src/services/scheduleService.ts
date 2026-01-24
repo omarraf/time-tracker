@@ -38,6 +38,18 @@ export const saveSchedule = async (
   }
 ): Promise<string> => {
   try {
+    // Check schedule count limit (max 10 schedules per user)
+    const schedulesQuery = query(
+      collection(db, SCHEDULES_COLLECTION),
+      where('userId', '==', userId),
+      where('isTemplate', '==', false)
+    );
+    const snapshot = await getDocs(schedulesQuery);
+
+    if (snapshot.size >= 10) {
+      throw new Error('Maximum 10 schedules per user. Delete old schedules to create new ones.');
+    }
+
     const scheduleRef = doc(collection(db, SCHEDULES_COLLECTION));
     const scheduleId = scheduleRef.id;
 
@@ -53,6 +65,10 @@ export const saveSchedule = async (
     return scheduleId;
   } catch (error) {
     console.error('Error saving schedule:', error);
+    // Re-throw if it's our custom limit error, otherwise throw generic error
+    if (error instanceof Error && error.message.includes('Maximum 10 schedules')) {
+      throw error;
+    }
     throw new Error('Failed to save schedule');
   }
 };
