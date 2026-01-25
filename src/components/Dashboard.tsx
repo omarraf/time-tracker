@@ -34,6 +34,7 @@ export default function Dashboard() {
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error' | null>(null);
   const [viewMode, setViewMode] = useState<'linear' | 'circular'>('linear');
   const [showSignInPrompt, setShowSignInPrompt] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // Modal state
   const [showLabelModal, setShowLabelModal] = useState(false);
@@ -359,13 +360,26 @@ export default function Dashboard() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
+      {/* Mobile Sidebar Backdrop */}
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <Sidebar
-        currentRoute={currentRoute}
-        onNavigate={setCurrentRoute}
-        userEmail={user?.email}
-        isGuestMode={isGuestMode}
-      />
+      <div className={`${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed lg:static inset-y-0 left-0 z-50 transition-transform duration-300`}>
+        <Sidebar
+          currentRoute={currentRoute}
+          onNavigate={(route) => {
+            setCurrentRoute(route);
+            setIsSidebarOpen(false); // Close sidebar on mobile after navigation
+          }}
+          userEmail={user?.email}
+          isGuestMode={isGuestMode}
+        />
+      </div>
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -385,11 +399,22 @@ export default function Dashboard() {
         )}
 
         {/* Header */}
-        <header className="bg-white border-b border-gray-200 px-4 sm:px-8 py-4">
-          <div className="flex items-center justify-between gap-4">
+        <header className="bg-white border-b border-gray-200 px-4 sm:px-8 py-3 sm:py-4">
+          <div className="flex items-center justify-between gap-2 sm:gap-4">
+            {/* Hamburger Menu Button - Mobile Only */}
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="lg:hidden p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+              aria-label="Open menu"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-3">
-                <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">
                   {currentRoute === 'dashboard' && 'Schedule Editor'}
                   {currentRoute === 'schedules' && 'My Schedules'}
                   {currentRoute === 'settings' && 'Settings'}
@@ -496,21 +521,21 @@ export default function Dashboard() {
 
             {/* Controls */}
             {currentRoute === 'dashboard' && (
-              <div className="flex items-center gap-3 flex-shrink-0">
+              <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
                 {/* Save Button */}
                 <button
                   onClick={handleSaveSchedule}
                   disabled={savingRef.current}
-                  className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-3 sm:px-4 py-1.5 sm:py-2 bg-blue-600 text-white text-xs sm:text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
                 >
                   {savingRef.current ? 'Saving...' : 'Save'}
                 </button>
 
                 {/* View Toggle */}
-                <div className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-100/80 p-1 shadow-inner">
+                <div className="inline-flex items-center gap-0.5 sm:gap-1 rounded-full border border-gray-200 bg-gray-100/80 p-0.5 sm:p-1 shadow-inner">
                   <button
                     onClick={() => setViewMode('linear')}
-                    className={`px-3 py-1.5 rounded-full border text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
+                    className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-full border text-xs font-medium transition-all whitespace-nowrap touch-manipulation ${
                       viewMode === 'linear'
                         ? 'bg-white text-gray-900 shadow-sm border-gray-200'
                         : 'text-gray-600 hover:text-gray-900 border-transparent hover:border-gray-200 hover:bg-white/70'
@@ -520,7 +545,7 @@ export default function Dashboard() {
                   </button>
                   <button
                     onClick={() => setViewMode('circular')}
-                    className={`px-3 py-1.5 rounded-full border text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
+                    className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-full border text-xs font-medium transition-all whitespace-nowrap touch-manipulation ${
                       viewMode === 'circular'
                         ? 'bg-white text-gray-900 shadow-sm border-gray-200'
                         : 'text-gray-600 hover:text-gray-900 border-transparent hover:border-gray-200 hover:bg-white/70'

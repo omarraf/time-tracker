@@ -80,9 +80,26 @@ export default function Timeline({
     setIsDragging(true);
   };
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    e.preventDefault(); // Prevent scrolling while dragging
+    const touch = e.touches[0];
+    const minutes = pixelToMinutes(touch.clientY);
+    setDragStart(minutes);
+    setDragEnd(minutes);
+    setIsDragging(true);
+  };
+
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!timelineRef.current) return;
     const minutes = pixelToMinutes(e.clientY);
+    setDragEnd(minutes);
+  }, []);
+
+  const handleTouchMove = useCallback((e: TouchEvent) => {
+    if (!timelineRef.current) return;
+    e.preventDefault(); // Prevent scrolling while dragging
+    const touch = e.touches[0];
+    const minutes = pixelToMinutes(touch.clientY);
     setDragEnd(minutes);
   }, []);
 
@@ -99,6 +116,11 @@ export default function Timeline({
             const startTime = minutesToTimeString(startMinutes);
             const endTime = minutesToTimeString(endMinutes);
             onBlockCreated(startTime, endTime);
+
+            // Haptic feedback on mobile
+            if ('vibrate' in navigator) {
+              navigator.vibrate(50);
+            }
           }
         }
         return null;
@@ -107,18 +129,22 @@ export default function Timeline({
     });
   }, [onBlockCreated]);
 
-  // Add global mouse listeners for dragging
+  // Add global mouse and touch listeners for dragging
   useEffect(() => {
     if (isDragging) {
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
+      document.addEventListener('touchmove', handleTouchMove, { passive: false });
+      document.addEventListener('touchend', handleMouseUp);
 
       return () => {
         document.removeEventListener('mousemove', handleMouseMove);
         document.removeEventListener('mouseup', handleMouseUp);
+        document.removeEventListener('touchmove', handleTouchMove);
+        document.removeEventListener('touchend', handleMouseUp);
       };
     }
-  }, [isDragging, handleMouseMove, handleMouseUp]);
+  }, [isDragging, handleMouseMove, handleTouchMove, handleMouseUp]);
 
   // Render hour markers
   const renderHourMarkers = () => {
@@ -133,7 +159,7 @@ export default function Timeline({
           className="absolute left-0 right-0 border-t border-gray-200"
           style={{ top: `${top}%` }}
         >
-          <span className="absolute -left-14 -top-2 text-xs text-gray-500 font-medium whitespace-nowrap">
+          <span className="absolute -left-12 sm:-left-14 -top-2 text-xs text-gray-500 font-medium whitespace-nowrap">
             {formatHourTo12Hour(hour)}
           </span>
         </div>
@@ -156,18 +182,18 @@ export default function Timeline({
         return (
           <div
             key={`${block.id}-${index}`}
-            className="absolute left-14 right-4 rounded-lg cursor-pointer transition-all hover:shadow-lg hover:scale-[1.02] group"
+            className="absolute left-12 sm:left-14 right-2 sm:right-4 rounded-lg cursor-pointer transition-all hover:shadow-lg active:scale-95 sm:hover:scale-[1.02] group touch-manipulation"
             style={{
               top: `${top}%`,
               height: `${height}%`,
               backgroundColor: block.color,
-              minHeight: '20px',
+              minHeight: '30px',
             }}
             onClick={() => onBlockClick(block)}
             title={`${block.label} (${formatTo12Hour(block.startTime)} - ${formatTo12Hour(block.endTime)})`}
           >
             {duration >= 15 && (
-              <div className="px-3 py-2 text-white font-medium text-sm">
+              <div className="px-2 sm:px-3 py-1.5 sm:py-2 text-white font-medium text-xs sm:text-sm">
                 <div className="flex items-center justify-between gap-2">
                   <span className="truncate">{block.label}</span>
                   {index === 0 && duration >= 30 && (
@@ -195,7 +221,7 @@ export default function Timeline({
     return segments.map((segment, index) => (
       <div
         key={`preview-${segment.start}-${index}`}
-        className="absolute left-14 right-4 rounded-lg border-2 border-dashed border-gray-400 pointer-events-none bg-gradient-to-r from-blue-100 to-purple-100"
+        className="absolute left-12 sm:left-14 right-2 sm:right-4 rounded-lg border-2 border-dashed border-gray-400 pointer-events-none bg-gradient-to-r from-blue-100 to-purple-100"
         style={{
           top: `${(segment.start / totalDayMinutes) * 100}%`,
           height: `${(segment.duration / totalDayMinutes) * 100}%`,
@@ -203,7 +229,7 @@ export default function Timeline({
         }}
       >
         {index === 0 && (
-          <div className="px-3 py-2 text-gray-700 font-medium text-sm">
+          <div className="px-2 sm:px-3 py-1.5 sm:py-2 text-gray-700 font-medium text-xs sm:text-sm">
             <div className="text-xs">
               {formatTo12Hour(minutesToTimeString(startMinutes))} - {formatTo12Hour(minutesToTimeString((startMinutes + duration) % totalDayMinutes))}
             </div>
@@ -218,23 +244,24 @@ export default function Timeline({
 
   return (
     <div className="flex-1 overflow-auto bg-gray-50">
-      <div className="mx-auto max-w-4xl px-6 py-8">
-        <div className="mb-6">
-          <h3 className="text-lg font-semibold text-gray-900">
+      <div className="mx-auto max-w-4xl px-4 sm:px-6 py-4 sm:py-8">
+        <div className="mb-4 sm:mb-6">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900">
             Timeline View
           </h3>
-          <p className="text-sm text-gray-600 mt-2">
+          <p className="text-xs sm:text-sm text-gray-600 mt-1 sm:mt-2">
             Drag on the timeline to create time blocks (5-minute intervals)
           </p>
         </div>
 
         {/* Timeline Container */}
-        <div className="relative pl-16">
+        <div className="relative pl-12 sm:pl-16">
           <div
             ref={timelineRef}
-            className="relative bg-white border-2 border-gray-300 rounded-lg cursor-crosshair shadow-sm"
+            className="relative bg-white border-2 border-gray-300 rounded-lg cursor-crosshair shadow-sm touch-none"
             style={{ height: `${timelineHeight}px` }}
             onMouseDown={handleMouseDown}
+            onTouchStart={handleTouchStart}
           >
             {renderHourMarkers()}
             {renderTimeBlocks()}

@@ -77,12 +77,24 @@ export default function CircularChart({
     return (minutes / (24 * 60)) * 360;
   };
 
-  // Get angle from mouse position
-  const getAngleFromEvent = (e: React.MouseEvent | MouseEvent): number => {
+  // Get angle from mouse or touch position
+  const getAngleFromEvent = (e: React.MouseEvent | MouseEvent | React.TouchEvent | TouchEvent): number => {
     if (!svgRef.current) return 0;
     const rect = svgRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left - center;
-    const y = e.clientY - rect.top - center;
+    let clientX: number, clientY: number;
+
+    if ('touches' in e) {
+      const touch = e.touches[0] || e.changedTouches?.[0];
+      if (!touch) return 0;
+      clientX = touch.clientX;
+      clientY = touch.clientY;
+    } else {
+      clientX = e.clientX;
+      clientY = e.clientY;
+    }
+
+    const x = clientX - rect.left - center;
+    const y = clientY - rect.top - center;
     const angle = (Math.atan2(y, x) * 180) / Math.PI + 90;
     return angle;
   };
@@ -96,11 +108,37 @@ export default function CircularChart({
     setIsDragging(true);
   };
 
-  const handleMouseMove = useCallback((e: MouseEvent) => {
+  const handleTouchStart = (e: React.TouchEvent) => {
+    e.preventDefault(); // Prevent scrolling while dragging
+    const angle = getAngleFromEvent(e);
+    const minutes = angleToMinutes(angle);
+    setDragStart(minutes);
+    setDragProgress(0);
+    lastDragMinutesRef.current = minutes;
+    setIsDragging(true);
+  };
+
+  const handleMouseMove = useCallback((e: MouseEvent | TouchEvent) => {
     if (!svgRef.current || !isDragging || dragStart === null) return;
+    if ('touches' in e) {
+      e.preventDefault(); // Prevent scrolling while dragging
+    }
+
     const rect = svgRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left - center;
-    const y = e.clientY - rect.top - center;
+    let clientX: number, clientY: number;
+
+    if ('touches' in e) {
+      const touch = e.touches[0];
+      if (!touch) return;
+      clientX = touch.clientX;
+      clientY = touch.clientY;
+    } else {
+      clientX = e.clientX;
+      clientY = e.clientY;
+    }
+
+    const x = clientX - rect.left - center;
+    const y = clientY - rect.top - center;
     const angle = (Math.atan2(y, x) * 180) / Math.PI + 90;
     const minutes = angleToMinutes(angle);
 
@@ -122,6 +160,11 @@ export default function CircularChart({
       const startTime = minutesToTimeString(dragStart);
       const endTime = minutesToTimeString((dragStart + dragProgress) % (24 * 60));
       onBlockCreated(startTime, endTime);
+
+      // Haptic feedback on mobile
+      if ('vibrate' in navigator) {
+        navigator.vibrate(50);
+      }
     }
 
     lastDragMinutesRef.current = null;
@@ -129,6 +172,23 @@ export default function CircularChart({
     setDragStart(null);
     setDragProgress(0);
   }, [isDragging, dragStart, dragProgress, onBlockCreated]);
+
+  // Add global mouse and touch listeners for dragging
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.addEventListener('touchmove', handleMouseMove, { passive: false });
+      document.addEventListener('touchend', handleMouseUp);
+
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+        document.removeEventListener('touchmove', handleMouseMove);
+        document.removeEventListener('touchend', handleMouseUp);
+      };
+    }
+  }, [isDragging, handleMouseMove, handleMouseUp]);
 
   // Render hour labels (24-hour clock: 12 AM top, 6 AM right, 12 PM bottom, 6 PM left)
   const renderHourLabels = () => {
@@ -409,12 +469,12 @@ export default function CircularChart({
 
   return (
     <div className="flex-1 overflow-auto bg-gray-50">
-      <div className="mx-auto max-w-5xl px-6 py-8">
-        <div className="mb-6 text-center">
-          <h3 className="text-lg font-semibold text-gray-900">
+      <div className="mx-auto max-w-5xl px-4 sm:px-6 py-4 sm:py-8">
+        <div className="mb-4 sm:mb-6 text-center">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900">
             Circular Overview
           </h3>
-          <p className="text-sm text-gray-600 mt-2">
+          <p className="text-xs sm:text-sm text-gray-600 mt-1 sm:mt-2">
             Drag around the dial to create time blocks or tap an existing block to edit.
           </p>
         </div>
@@ -423,9 +483,9 @@ export default function CircularChart({
             ref={svgRef}
             width={canvasSize}
             height={canvasSize}
-            className="cursor-crosshair"
+            className="cursor-crosshair touch-none"
             onMouseDown={handleMouseDown}
-            onMouseMove={isDragging ? (e) => handleMouseMove(e.nativeEvent) : undefined}
+            onTouchStart={handleTouchStart}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
           >
