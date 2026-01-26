@@ -9,6 +9,7 @@ import LabelModal from './LabelModal';
 import SchedulesPage from './SchedulesPage';
 import SettingsPage from './SettingsPage';
 import AuthButtons from './AuthButtons';
+import BottomNav from './BottomNav';
 import type { NavRoute, TimeBlock } from '../types/schedule';
 import {
   saveSchedule,
@@ -34,7 +35,6 @@ export default function Dashboard() {
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error' | null>(null);
   const [viewMode, setViewMode] = useState<'linear' | 'circular'>('linear');
   const [showSignInPrompt, setShowSignInPrompt] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // Modal state
   const [showLabelModal, setShowLabelModal] = useState(false);
@@ -359,22 +359,13 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50">
-      {/* Mobile Sidebar Backdrop */}
-      {isSidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-          onClick={() => setIsSidebarOpen(false)}
-        />
-      )}
-
-      {/* Sidebar */}
-      <div className={`${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed lg:static inset-y-0 left-0 z-50 transition-transform duration-300`}>
+    <div className="flex h-screen overflow-hidden overflow-x-hidden bg-gray-50">
+      {/* Sidebar - Desktop Only */}
+      <div className="hidden lg:block">
         <Sidebar
           currentRoute={currentRoute}
           onNavigate={(route) => {
             setCurrentRoute(route);
-            setIsSidebarOpen(false); // Close sidebar on mobile after navigation
           }}
           userEmail={user?.email}
           isGuestMode={isGuestMode}
@@ -382,7 +373,7 @@ export default function Dashboard() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden overflow-x-hidden">
         {/* Guest Mode Banner */}
         {!user && isGuestMode && (
           <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-4 py-3 flex items-center justify-between">
@@ -399,19 +390,8 @@ export default function Dashboard() {
         )}
 
         {/* Header */}
-        <header className="bg-white border-b border-gray-200 px-4 sm:px-8 py-3 sm:py-4">
+        <header className="bg-white border-b border-gray-200 px-4 sm:px-8 py-2 sm:py-3 lg:py-4">
           <div className="flex items-center justify-between gap-2 sm:gap-4">
-            {/* Hamburger Menu Button - Mobile Only */}
-            <button
-              onClick={() => setIsSidebarOpen(true)}
-              className="lg:hidden p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-              aria-label="Open menu"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
-
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 sm:gap-3">
                 <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">
@@ -559,22 +539,23 @@ export default function Dashboard() {
           </div>
         </header>
 
-        {/* Content Area */}
-        {currentRoute === 'dashboard' && viewMode === 'linear' && (
-          <Timeline
-            timeBlocks={timeBlocks}
-            onBlockCreated={handleBlockCreated}
-            onBlockClick={handleBlockClick}
-          />
-        )}
+        {/* Content Area - Add bottom padding on mobile for bottom nav */}
+        <div className="flex-1 overflow-hidden pb-0 lg:pb-0">
+          {currentRoute === 'dashboard' && viewMode === 'linear' && (
+            <Timeline
+              timeBlocks={timeBlocks}
+              onBlockCreated={handleBlockCreated}
+              onBlockClick={handleBlockClick}
+            />
+          )}
 
-        {currentRoute === 'dashboard' && viewMode === 'circular' && (
-          <CircularChart
-            timeBlocks={timeBlocks}
-            onBlockCreated={handleBlockCreated}
-            onBlockClick={handleBlockClick}
-          />
-        )}
+          {currentRoute === 'dashboard' && viewMode === 'circular' && (
+            <CircularChart
+              timeBlocks={timeBlocks}
+              onBlockCreated={handleBlockCreated}
+              onBlockClick={handleBlockClick}
+            />
+          )}
 
         {currentRoute === 'schedules' && (
           <>
@@ -605,36 +586,40 @@ export default function Dashboard() {
           </>
         )}
 
-        {currentRoute === 'settings' && (
-          <>
-            {user ? (
-              <SettingsPage
-                user={user}
-                timeBlocks={[]}
-                currentScheduleName=""
-              />
-            ) : (
-              <div className="flex-1 flex items-center justify-center p-8">
-                <div className="text-center max-w-md">
-                  <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
+          {currentRoute === 'settings' && (
+            <>
+              {user ? (
+                <SettingsPage
+                  user={user}
+                  timeBlocks={[]}
+                  currentScheduleName=""
+                />
+              ) : (
+                <div className="flex-1 flex items-center justify-center p-8">
+                  <div className="text-center max-w-md">
+                    <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                      Sign In to Access Settings
+                    </h3>
+                    <p className="text-gray-600 mb-6">
+                      Sign in to manage your profile, export schedules, and more
+                    </p>
+                    <AuthButtons />
                   </div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                    Sign In to Access Settings
-                  </h3>
-                  <p className="text-gray-600 mb-6">
-                    Sign in to manage your profile, export schedules, and more
-                  </p>
-                  <AuthButtons />
                 </div>
-              </div>
-            )}
-          </>
-        )}
+              )}
+            </>
+          )}
+        </div>
       </div>
+
+      {/* Bottom Navigation - Mobile Only */}
+      <BottomNav currentRoute={currentRoute} onNavigate={setCurrentRoute} />
 
       {/* Label Modal */}
       {(pendingBlock || editingBlock) && (

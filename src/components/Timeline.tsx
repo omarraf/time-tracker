@@ -159,7 +159,7 @@ export default function Timeline({
           className="absolute left-0 right-0 border-t border-gray-200"
           style={{ top: `${top}%` }}
         >
-          <span className="absolute -left-12 sm:-left-14 -top-2 text-xs text-gray-500 font-medium whitespace-nowrap">
+          <span className="absolute -left-10 sm:-left-12 lg:-left-14 -top-2 text-xs text-gray-500 font-medium whitespace-nowrap">
             {formatHourTo12Hour(hour)}
           </span>
         </div>
@@ -182,7 +182,7 @@ export default function Timeline({
         return (
           <div
             key={`${block.id}-${index}`}
-            className="absolute left-12 sm:left-14 right-2 sm:right-4 rounded-lg cursor-pointer transition-all hover:shadow-lg active:scale-95 sm:hover:scale-[1.02] group touch-manipulation"
+            className="absolute left-10 sm:left-12 lg:left-14 right-2 sm:right-4 rounded-lg cursor-pointer transition-all hover:shadow-lg active:scale-95 sm:hover:scale-[1.02] group touch-manipulation"
             style={{
               top: `${top}%`,
               height: `${height}%`,
@@ -221,7 +221,7 @@ export default function Timeline({
     return segments.map((segment, index) => (
       <div
         key={`preview-${segment.start}-${index}`}
-        className="absolute left-12 sm:left-14 right-2 sm:right-4 rounded-lg border-2 border-dashed border-gray-400 pointer-events-none bg-gradient-to-r from-blue-100 to-purple-100"
+        className="absolute left-10 sm:left-12 lg:left-14 right-2 sm:right-4 rounded-lg border-2 border-dashed border-gray-400 pointer-events-none bg-gradient-to-r from-blue-100 to-purple-100"
         style={{
           top: `${(segment.start / totalDayMinutes) * 100}%`,
           height: `${(segment.duration / totalDayMinutes) * 100}%`,
@@ -243,9 +243,9 @@ export default function Timeline({
   };
 
   return (
-    <div className="flex-1 overflow-auto bg-gray-50">
-      <div className="mx-auto max-w-4xl px-4 sm:px-6 py-4 sm:py-8">
-        <div className="mb-4 sm:mb-6">
+    <div className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50">
+      <div className="mx-auto max-w-4xl px-2 sm:px-4 lg:px-6 py-4 sm:py-8">
+        <div className="mb-4 sm:mb-6 px-2 sm:px-0">
           <h3 className="text-base sm:text-lg font-semibold text-gray-900">
             Timeline View
           </h3>
@@ -255,7 +255,7 @@ export default function Timeline({
         </div>
 
         {/* Timeline Container */}
-        <div className="relative pl-12 sm:pl-16">
+        <div className="relative pl-10 sm:pl-12 lg:pl-16 pr-2">
           <div
             ref={timelineRef}
             className="relative bg-white border-2 border-gray-300 rounded-lg cursor-crosshair shadow-sm touch-none"

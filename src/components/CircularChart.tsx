@@ -48,8 +48,11 @@ export default function CircularChart({
 
   const defaultSize = 720;
   const heightBound = viewport.height ? viewport.height - 220 : defaultSize;
-  const widthBound = viewport.width ? viewport.width - 280 : defaultSize;
-  const boundedSize = Math.min(Math.max(Math.min(heightBound, widthBound), 560), 900);
+  // Responsive width calculation: less offset on mobile (no sidebar), more on desktop
+  const isDesktop = viewport.width >= 1024;
+  const sideOffset = isDesktop ? 280 : 32; // 32px for mobile padding (16px each side)
+  const widthBound = viewport.width ? viewport.width - sideOffset : defaultSize;
+  const boundedSize = Math.min(Math.max(Math.min(heightBound, widthBound), 380), 900);
   const chartSize = Number.isFinite(boundedSize) ? boundedSize : defaultSize;
 
   const labelMargin = Math.max(48, chartSize * 0.085);
@@ -468,7 +471,7 @@ export default function CircularChart({
   };
 
   return (
-    <div className="flex-1 overflow-auto bg-gray-50">
+    <div className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50">
       <div className="mx-auto max-w-5xl px-4 sm:px-6 py-4 sm:py-8">
         <div className="mb-4 sm:mb-6 text-center">
           <h3 className="text-base sm:text-lg font-semibold text-gray-900">
@@ -478,12 +481,14 @@ export default function CircularChart({
             Drag around the dial to create time blocks or tap an existing block to edit.
           </p>
         </div>
-        <div className="flex justify-center overflow-auto pb-8">
-          <svg
-            ref={svgRef}
-            width={canvasSize}
-            height={canvasSize}
-            className="cursor-crosshair touch-none"
+        <div className="flex justify-center items-center overflow-x-hidden pb-8 lg:pb-16">
+          <div className="w-full max-w-full flex justify-center" style={{ maxWidth: `${canvasSize}px` }}>
+            <svg
+              ref={svgRef}
+              width={canvasSize}
+              height={canvasSize}
+              className="cursor-crosshair touch-none max-w-full h-auto"
+              style={{ maxWidth: '100%' }}
             onMouseDown={handleMouseDown}
             onTouchStart={handleTouchStart}
             onMouseUp={handleMouseUp}
@@ -559,7 +564,8 @@ export default function CircularChart({
                 </foreignObject>
               </g>
             )}
-          </svg>
+            </svg>
+          </div>
         </div>
       </div>
     </div>
