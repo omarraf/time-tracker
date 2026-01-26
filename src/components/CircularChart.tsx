@@ -53,7 +53,7 @@ export default function CircularChart({
   const heightBound = viewport.height ? viewport.height - 220 : defaultSize;
   // Responsive width calculation: less offset on mobile (no sidebar), more on desktop
   const isDesktop = viewport.width >= 1024;
-  const sideOffset = isDesktop ? 280 : 32; // 32px for mobile padding (16px each side)
+  const sideOffset = isDesktop ? 280 : 48; // 48px for mobile padding + margins (24px each side)
   const widthBound = viewport.width ? viewport.width - sideOffset : defaultSize;
   const boundedSize = Math.min(Math.max(Math.min(heightBound, widthBound), 380), 900);
   const chartSize = Number.isFinite(boundedSize) ? boundedSize : defaultSize;
@@ -521,7 +521,7 @@ export default function CircularChart({
 
   return (
     <div className="flex-1 overflow-auto bg-gray-50">
-      <div className="mx-auto max-w-5xl px-2 sm:px-4 lg:px-6 py-4 sm:py-8 pb-20 lg:pb-8">
+      <div className="mx-auto max-w-5xl px-4 sm:px-6 py-4 sm:py-8 pb-20 lg:pb-8">
         <div className="mb-4 sm:mb-6 text-center">
           <h3 className="text-base sm:text-lg font-semibold text-gray-900">
             Circular Overview
@@ -531,18 +531,17 @@ export default function CircularChart({
           </p>
         </div>
         <div className="flex items-center justify-center w-full pb-8">
-          <div className="flex items-center justify-center" style={{ width: `${canvasSize}px`, height: `${canvasSize}px`, maxWidth: '100%' }}>
-            <svg
-              ref={svgRef}
-              width={canvasSize}
-              height={canvasSize}
-              className="cursor-crosshair block mx-auto"
-              style={{ maxWidth: '100%', height: 'auto' }}
-              onMouseDown={handleMouseDown}
-              onTouchStart={handleTouchStart}
-              onMouseUp={handleMouseUp}
-              onMouseLeave={handleMouseUp}
-            >
+          <svg
+            ref={svgRef}
+            width={canvasSize}
+            height={canvasSize}
+            className="cursor-crosshair block"
+            style={{ maxWidth: '100%', height: 'auto', margin: '0 auto' }}
+            onMouseDown={handleMouseDown}
+            onTouchStart={handleTouchStart}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+          >
             {/* Background circle */}
             <circle
               cx={center}
@@ -614,7 +613,6 @@ export default function CircularChart({
               </g>
             )}
           </svg>
-          </div>
         </div>
       </div>
     </div>

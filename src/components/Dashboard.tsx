@@ -384,15 +384,15 @@ export default function Dashboard() {
               </svg>
               <span className="text-sm font-medium">
                 You're in guest mode.{' '}
-                <button
+                <span
                   onClick={() => {
                     const button = authButtonRef.current?.querySelector('button');
                     if (button) button.click();
                   }}
-                  className="underline hover:text-blue-100 transition-colors font-semibold"
+                  className="underline cursor-pointer hover:text-blue-100 transition-colors"
                 >
                   Sign in
-                </button>{' '}
+                </span>{' '}
                 to save your schedules!
               </span>
             </div>
@@ -586,9 +586,18 @@ export default function Dashboard() {
                     Sign In to View Schedules
                   </h3>
                   <p className="text-gray-600 mb-6">
-                    Create an account or sign in to save and manage multiple schedules
+                    Create an account or{' '}
+                    <span
+                      onClick={() => {
+                        const button = authButtonRef.current?.querySelector('button');
+                        if (button) button.click();
+                      }}
+                      className="text-blue-600 underline cursor-pointer hover:text-blue-700 transition-colors"
+                    >
+                      sign in
+                    </span>{' '}
+                    to save and manage multiple schedules
                   </p>
-                  <AuthButtons />
                 </div>
               </div>
             )}
@@ -616,9 +625,17 @@ export default function Dashboard() {
                     Sign In to Access Settings
                   </h3>
                   <p className="text-gray-600 mb-6">
-                    Sign in to manage your profile, export schedules, and more
+                    <span
+                      onClick={() => {
+                        const button = authButtonRef.current?.querySelector('button');
+                        if (button) button.click();
+                      }}
+                      className="text-blue-600 underline cursor-pointer hover:text-blue-700 transition-colors"
+                    >
+                      Sign in
+                    </span>{' '}
+                    to manage your profile, export schedules, and more
                   </p>
-                  <AuthButtons />
                 </div>
               </div>
             )}
