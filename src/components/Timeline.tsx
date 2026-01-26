@@ -26,9 +26,13 @@ export default function Timeline({
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState<number | null>(null);
   const [dragEnd, setDragEnd] = useState<number | null>(null);
+  const [dragStartPixel, setDragStartPixel] = useState<number | null>(null);
+  const [hasMovedEnough, setHasMovedEnough] = useState(false);
   const [viewportHeight, setViewportHeight] = useState(
     typeof window !== 'undefined' ? window.innerHeight : 0,
   );
+
+  const DRAG_THRESHOLD = 10; // pixels to move before starting drag
 
   useEffect(() => {
     const handleResize = () => setViewportHeight(window.innerHeight);
@@ -77,57 +81,86 @@ export default function Timeline({
     const minutes = pixelToMinutes(e.clientY);
     setDragStart(minutes);
     setDragEnd(minutes);
+    setDragStartPixel(e.clientY);
+    setHasMovedEnough(false);
     setIsDragging(true);
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    e.preventDefault(); // Prevent scrolling while dragging
+    // Don't prevent default initially - allow scrolling until threshold is met
     const touch = e.touches[0];
     const minutes = pixelToMinutes(touch.clientY);
     setDragStart(minutes);
     setDragEnd(minutes);
+    setDragStartPixel(touch.clientY);
+    setHasMovedEnough(false);
     setIsDragging(true);
   };
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!timelineRef.current) return;
+    if (!timelineRef.current || !isDragging) return;
+
+    // Check if we've moved enough to start dragging
+    if (!hasMovedEnough && dragStartPixel !== null) {
+      const distance = Math.abs(e.clientY - dragStartPixel);
+      if (distance < DRAG_THRESHOLD) {
+        return; // Not moved enough yet
+      }
+      setHasMovedEnough(true);
+    }
+
     const minutes = pixelToMinutes(e.clientY);
     setDragEnd(minutes);
-  }, []);
+  }, [isDragging, hasMovedEnough, dragStartPixel, DRAG_THRESHOLD]);
 
   const handleTouchMove = useCallback((e: TouchEvent) => {
-    if (!timelineRef.current) return;
-    e.preventDefault(); // Prevent scrolling while dragging
+    if (!timelineRef.current || !isDragging) return;
+
     const touch = e.touches[0];
+
+    // Check if we've moved enough to start dragging
+    if (!hasMovedEnough && dragStartPixel !== null) {
+      const distance = Math.abs(touch.clientY - dragStartPixel);
+      if (distance < DRAG_THRESHOLD) {
+        return; // Not moved enough yet - allow normal scrolling
+      }
+      setHasMovedEnough(true);
+      e.preventDefault(); // Now prevent scrolling since we're dragging
+    }
+
+    if (hasMovedEnough) {
+      e.preventDefault(); // Prevent scrolling while dragging
+    }
+
     const minutes = pixelToMinutes(touch.clientY);
     setDragEnd(minutes);
-  }, []);
+  }, [isDragging, hasMovedEnough, dragStartPixel, DRAG_THRESHOLD]);
 
   const handleMouseUp = useCallback(() => {
-    setIsDragging(false);
-    setDragStart(prev => {
-      setDragEnd(end => {
-        if (prev !== null && end !== null) {
-          const startMinutes = Math.min(prev, end);
-          const endMinutes = Math.max(prev, end);
+    // Only create block if we moved enough to start dragging
+    if (hasMovedEnough && dragStart !== null && dragEnd !== null) {
+      const startMinutes = Math.min(dragStart, dragEnd);
+      const endMinutes = Math.max(dragStart, dragEnd);
 
-          // Only create if dragged at least 5 minutes
-          if (endMinutes - startMinutes >= 5) {
-            const startTime = minutesToTimeString(startMinutes);
-            const endTime = minutesToTimeString(endMinutes);
-            onBlockCreated(startTime, endTime);
+      // Only create if dragged at least 5 minutes
+      if (endMinutes - startMinutes >= 5) {
+        const startTime = minutesToTimeString(startMinutes);
+        const endTime = minutesToTimeString(endMinutes);
+        onBlockCreated(startTime, endTime);
 
-            // Haptic feedback on mobile
-            if ('vibrate' in navigator) {
-              navigator.vibrate(50);
-            }
-          }
+        // Haptic feedback on mobile
+        if ('vibrate' in navigator) {
+          navigator.vibrate(50);
         }
-        return null;
-      });
-      return null;
-    });
-  }, [onBlockCreated]);
+      }
+    }
+
+    setIsDragging(false);
+    setDragStart(null);
+    setDragEnd(null);
+    setDragStartPixel(null);
+    setHasMovedEnough(false);
+  }, [hasMovedEnough, dragStart, dragEnd, onBlockCreated]);
 
   // Add global mouse and touch listeners for dragging
   useEffect(() => {
@@ -159,7 +192,7 @@ export default function Timeline({
           className="absolute left-0 right-0 border-t border-gray-200"
           style={{ top: `${top}%` }}
         >
-          <span className="absolute -left-10 sm:-left-12 lg:-left-14 -top-2 text-xs text-gray-500 font-medium whitespace-nowrap">
+          <span className="absolute -left-12 sm:-left-14 -top-2 text-xs text-gray-500 font-medium whitespace-nowrap">
             {formatHourTo12Hour(hour)}
           </span>
         </div>
@@ -182,7 +215,7 @@ export default function Timeline({
         return (
           <div
             key={`${block.id}-${index}`}
-            className="absolute left-10 sm:left-12 lg:left-14 right-2 sm:right-4 rounded-lg cursor-pointer transition-all hover:shadow-lg active:scale-95 sm:hover:scale-[1.02] group touch-manipulation"
+            className="absolute left-12 sm:left-14 right-2 sm:right-4 rounded-lg cursor-pointer transition-all hover:shadow-lg active:scale-95 sm:hover:scale-[1.02] group touch-manipulation"
             style={{
               top: `${top}%`,
               height: `${height}%`,
@@ -212,7 +245,7 @@ export default function Timeline({
 
   // Render dragging preview
   const renderDragPreview = () => {
-    if (!isDragging || dragStart === null || dragEnd === null) return null;
+    if (!isDragging || !hasMovedEnough || dragStart === null || dragEnd === null) return null;
 
     const startMinutes = Math.min(dragStart, dragEnd);
     const duration = Math.abs(dragEnd - dragStart);
@@ -221,7 +254,7 @@ export default function Timeline({
     return segments.map((segment, index) => (
       <div
         key={`preview-${segment.start}-${index}`}
-        className="absolute left-10 sm:left-12 lg:left-14 right-2 sm:right-4 rounded-lg border-2 border-dashed border-gray-400 pointer-events-none bg-gradient-to-r from-blue-100 to-purple-100"
+        className="absolute left-12 sm:left-14 right-2 sm:right-4 rounded-lg border-2 border-dashed border-gray-400 pointer-events-none bg-gradient-to-r from-blue-100 to-purple-100"
         style={{
           top: `${(segment.start / totalDayMinutes) * 100}%`,
           height: `${(segment.duration / totalDayMinutes) * 100}%`,
@@ -243,9 +276,9 @@ export default function Timeline({
   };
 
   return (
-    <div className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50">
-      <div className="mx-auto max-w-4xl px-2 sm:px-4 lg:px-6 py-4 sm:py-8">
-        <div className="mb-4 sm:mb-6 px-2 sm:px-0">
+    <div className="flex-1 overflow-auto bg-gray-50">
+      <div className="mx-auto max-w-4xl px-4 sm:px-6 py-4 sm:py-8 pb-20 lg:pb-8">
+        <div className="mb-4 sm:mb-6">
           <h3 className="text-base sm:text-lg font-semibold text-gray-900">
             Timeline View
           </h3>
@@ -255,10 +288,10 @@ export default function Timeline({
         </div>
 
         {/* Timeline Container */}
-        <div className="relative pl-10 sm:pl-12 lg:pl-16 pr-2">
+        <div className="relative pl-12 sm:pl-14 lg:pl-16">
           <div
             ref={timelineRef}
-            className="relative bg-white border-2 border-gray-300 rounded-lg cursor-crosshair shadow-sm touch-none"
+            className="relative bg-white border-2 border-gray-300 rounded-lg cursor-crosshair shadow-sm"
             style={{ height: `${timelineHeight}px` }}
             onMouseDown={handleMouseDown}
             onTouchStart={handleTouchStart}

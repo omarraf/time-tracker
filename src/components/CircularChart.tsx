@@ -25,6 +25,7 @@ export default function CircularChart({
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState<number | null>(null);
   const [dragProgress, setDragProgress] = useState(0);
+  const [hasMovedEnough, setHasMovedEnough] = useState(false);
   const [hoveredBlock, setHoveredBlock] = useState<TimeBlock | null>(null);
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null);
   const [viewport, setViewport] = useState(() => ({
@@ -32,6 +33,8 @@ export default function CircularChart({
     height: typeof window !== 'undefined' ? window.innerHeight : 0,
   }));
   const lastDragMinutesRef = useRef<number | null>(null);
+
+  const DRAG_THRESHOLD_MINUTES = 5; // minutes to rotate before starting drag
 
   useEffect(() => {
     const handleResize = () => {
@@ -107,25 +110,24 @@ export default function CircularChart({
     const minutes = angleToMinutes(angle);
     setDragStart(minutes);
     setDragProgress(0);
+    setHasMovedEnough(false);
     lastDragMinutesRef.current = minutes;
     setIsDragging(true);
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    e.preventDefault(); // Prevent scrolling while dragging
+    // Don't prevent default initially - allow scrolling until threshold is met
     const angle = getAngleFromEvent(e);
     const minutes = angleToMinutes(angle);
     setDragStart(minutes);
     setDragProgress(0);
+    setHasMovedEnough(false);
     lastDragMinutesRef.current = minutes;
     setIsDragging(true);
   };
 
   const handleMouseMove = useCallback((e: MouseEvent | TouchEvent) => {
     if (!svgRef.current || !isDragging || dragStart === null) return;
-    if ('touches' in e) {
-      e.preventDefault(); // Prevent scrolling while dragging
-    }
 
     const rect = svgRef.current.getBoundingClientRect();
     let clientX: number, clientY: number;
@@ -152,14 +154,29 @@ export default function CircularChart({
 
     setDragProgress(prev => {
       const next = Math.max(0, Math.min(24 * 60, prev + diff));
+
+      // Check if we've moved enough to start dragging
+      if (!hasMovedEnough && next >= DRAG_THRESHOLD_MINUTES) {
+        setHasMovedEnough(true);
+        if ('touches' in e) {
+          e.preventDefault(); // Now prevent scrolling since we're dragging
+        }
+      }
+
+      // Only prevent default on touch if we've moved enough
+      if (hasMovedEnough && 'touches' in e) {
+        e.preventDefault();
+      }
+
       return next;
     });
 
     lastDragMinutesRef.current = minutes;
-  }, [isDragging, dragStart, center]);
+  }, [isDragging, dragStart, center, hasMovedEnough, DRAG_THRESHOLD_MINUTES]);
 
   const handleMouseUp = useCallback(() => {
-    if (isDragging && dragStart !== null && dragProgress >= 5) {
+    // Only create block if we moved enough to start dragging
+    if (isDragging && hasMovedEnough && dragStart !== null && dragProgress >= 5) {
       const startTime = minutesToTimeString(dragStart);
       const endTime = minutesToTimeString((dragStart + dragProgress) % (24 * 60));
       onBlockCreated(startTime, endTime);
@@ -174,7 +191,8 @@ export default function CircularChart({
     setIsDragging(false);
     setDragStart(null);
     setDragProgress(0);
-  }, [isDragging, dragStart, dragProgress, onBlockCreated]);
+    setHasMovedEnough(false);
+  }, [isDragging, hasMovedEnough, dragStart, dragProgress, onBlockCreated]);
 
   // Add global mouse and touch listeners for dragging
   useEffect(() => {
@@ -402,7 +420,7 @@ export default function CircularChart({
 
   // Render drag preview
   const renderDragPreview = () => {
-    if (!isDragging || dragStart === null || dragProgress < 5) return null;
+    if (!isDragging || !hasMovedEnough || dragStart === null || dragProgress < 5) return null;
 
     const startMinutes = dragStart;
     const duration = dragProgress;
@@ -471,8 +489,8 @@ export default function CircularChart({
   };
 
   return (
-    <div className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50">
-      <div className="mx-auto max-w-5xl px-4 sm:px-6 py-4 sm:py-8">
+    <div className="flex-1 overflow-auto bg-gray-50">
+      <div className="mx-auto max-w-5xl px-4 sm:px-6 py-4 sm:py-8 pb-20 lg:pb-8">
         <div className="mb-4 sm:mb-6 text-center">
           <h3 className="text-base sm:text-lg font-semibold text-gray-900">
             Circular Overview
@@ -481,14 +499,12 @@ export default function CircularChart({
             Drag around the dial to create time blocks or tap an existing block to edit.
           </p>
         </div>
-        <div className="flex justify-center items-center overflow-x-hidden pb-8 lg:pb-16">
-          <div className="w-full max-w-full flex justify-center" style={{ maxWidth: `${canvasSize}px` }}>
-            <svg
-              ref={svgRef}
-              width={canvasSize}
-              height={canvasSize}
-              className="cursor-crosshair touch-none max-w-full h-auto"
-              style={{ maxWidth: '100%' }}
+        <div className="flex justify-center pb-8">
+          <svg
+            ref={svgRef}
+            width={canvasSize}
+            height={canvasSize}
+            className="cursor-crosshair"
             onMouseDown={handleMouseDown}
             onTouchStart={handleTouchStart}
             onMouseUp={handleMouseUp}
@@ -564,8 +580,7 @@ export default function CircularChart({
                 </foreignObject>
               </g>
             )}
-            </svg>
-          </div>
+          </svg>
         </div>
       </div>
     </div>
