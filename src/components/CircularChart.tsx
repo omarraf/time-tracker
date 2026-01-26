@@ -83,6 +83,31 @@ export default function CircularChart({
     return (minutes / (24 * 60)) * 360;
   };
 
+  // Check if a point is within the draggable annulus area
+  const isPointInDraggableArea = (e: React.MouseEvent | React.TouchEvent): boolean => {
+    if (!svgRef.current) return false;
+    const rect = svgRef.current.getBoundingClientRect();
+    let clientX: number, clientY: number;
+
+    if ('touches' in e) {
+      const touch = e.touches[0];
+      if (!touch) return false;
+      clientX = touch.clientX;
+      clientY = touch.clientY;
+    } else {
+      clientX = e.clientX;
+      clientY = e.clientY;
+    }
+
+    const x = clientX - rect.left - center;
+    const y = clientY - rect.top - center;
+    const distance = Math.sqrt(x * x + y * y);
+
+    // Allow dragging within the annulus (between innerRadius and radius)
+    // Add a small buffer (10px) outside radius for easier interaction
+    return distance >= innerRadius * 0.9 && distance <= radius + 10;
+  };
+
   // Get angle from mouse or touch position
   const getAngleFromEvent = (e: React.MouseEvent | MouseEvent | React.TouchEvent | TouchEvent): number => {
     if (!svgRef.current) return 0;
@@ -106,6 +131,9 @@ export default function CircularChart({
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
+    // Only start dragging if click is within the draggable annulus area
+    if (!isPointInDraggableArea(e)) return;
+
     const angle = getAngleFromEvent(e);
     const minutes = angleToMinutes(angle);
     setDragStart(minutes);
@@ -116,6 +144,9 @@ export default function CircularChart({
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
+    // Only start dragging if touch is within the draggable annulus area
+    if (!isPointInDraggableArea(e)) return;
+
     // Don't prevent default initially - allow scrolling until threshold is met
     const angle = getAngleFromEvent(e);
     const minutes = angleToMinutes(angle);
@@ -490,7 +521,7 @@ export default function CircularChart({
 
   return (
     <div className="flex-1 overflow-auto bg-gray-50">
-      <div className="mx-auto max-w-5xl px-4 sm:px-6 py-4 sm:py-8 pb-20 lg:pb-8">
+      <div className="mx-auto max-w-5xl px-2 sm:px-4 lg:px-6 py-4 sm:py-8 pb-20 lg:pb-8">
         <div className="mb-4 sm:mb-6 text-center">
           <h3 className="text-base sm:text-lg font-semibold text-gray-900">
             Circular Overview
@@ -499,17 +530,19 @@ export default function CircularChart({
             Drag around the dial to create time blocks or tap an existing block to edit.
           </p>
         </div>
-        <div className="flex justify-center pb-8">
-          <svg
-            ref={svgRef}
-            width={canvasSize}
-            height={canvasSize}
-            className="cursor-crosshair"
-            onMouseDown={handleMouseDown}
-            onTouchStart={handleTouchStart}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
-          >
+        <div className="flex items-center justify-center w-full pb-8">
+          <div className="flex items-center justify-center" style={{ width: `${canvasSize}px`, height: `${canvasSize}px`, maxWidth: '100%' }}>
+            <svg
+              ref={svgRef}
+              width={canvasSize}
+              height={canvasSize}
+              className="cursor-crosshair block mx-auto"
+              style={{ maxWidth: '100%', height: 'auto' }}
+              onMouseDown={handleMouseDown}
+              onTouchStart={handleTouchStart}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseUp}
+            >
             {/* Background circle */}
             <circle
               cx={center}
@@ -581,6 +614,7 @@ export default function CircularChart({
               </g>
             )}
           </svg>
+          </div>
         </div>
       </div>
     </div>

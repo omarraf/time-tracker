@@ -46,6 +46,7 @@ export default function Dashboard() {
   const [currentScheduleName, setCurrentScheduleName] = useState<string>('My Schedule');
   const [showScheduleDropdown, setShowScheduleDropdown] = useState(false);
   const [allSchedules, setAllSchedules] = useState<Schedule[]>([]);
+  const authButtonRef = useRef<HTMLDivElement>(null);
 
   // Ref to track if we're currently saving
   const savingRef = useRef(false);
@@ -269,20 +270,20 @@ export default function Dashboard() {
   // Landing page for non-authenticated users
   if (!user && !isGuestMode) {
     return (
-      <div className="flex h-screen overflow-auto bg-gradient-to-br from-gray-50 via-white to-gray-50">
+      <div className="h-screen overflow-y-auto overflow-x-hidden bg-gradient-to-br from-gray-50 via-white to-gray-50">
         <AuthButtons />
-        <div className="flex-1 flex items-center justify-center p-8 min-h-full">
-          <div className="max-w-3xl">
-            <div className="text-center mb-12">
-              <h1 className="text-7xl font-black text-gray-900 mb-4 tracking-tight">
+        <div className="flex items-center justify-center p-4 sm:p-8 pt-20 sm:pt-24 pb-8 min-h-screen">
+          <div className="max-w-3xl w-full">
+            <div className="text-center mb-8 sm:mb-12">
+              <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black text-gray-900 mb-3 sm:mb-4 tracking-tight">
                 DayChart
               </h1>
-              <p className="text-xl text-gray-600">
+              <p className="text-lg sm:text-xl text-gray-600">
                 Visual time management reimagined
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-6 mb-12">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-8 sm:mb-12">
               <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
                 <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center mb-4">
                   <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -376,16 +377,25 @@ export default function Dashboard() {
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Guest Mode Banner */}
         {!user && isGuestMode && (
-          <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-4 py-3 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-4 py-3 flex items-center justify-center">
+            <div className="flex items-center gap-3 text-center">
+              <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <span className="text-sm font-medium">
-                You're in guest mode. Sign in to save your schedules!
+                You're in guest mode.{' '}
+                <button
+                  onClick={() => {
+                    const button = authButtonRef.current?.querySelector('button');
+                    if (button) button.click();
+                  }}
+                  className="underline hover:text-blue-100 transition-colors font-semibold"
+                >
+                  Sign in
+                </button>{' '}
+                to save your schedules!
               </span>
             </div>
-            <AuthButtons />
           </div>
         )}
 
@@ -637,6 +647,13 @@ export default function Dashboard() {
           initialLabel={editingBlock?.label}
           initialColor={editingBlock?.color}
         />
+      )}
+
+      {/* Auth Buttons for Guest Mode - Hidden but functional */}
+      {!user && isGuestMode && (
+        <div ref={authButtonRef} className="hidden">
+          <AuthButtons />
+        </div>
       )}
 
       {/* Sign-In Prompt Modal */}
