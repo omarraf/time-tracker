@@ -281,6 +281,12 @@ export default function Dashboard() {
               <p className="text-lg sm:text-xl text-gray-600">
                 Visual time management reimagined
               </p>
+              {/* Mobile performance note */}
+              <div className="lg:hidden mt-4 px-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+                  For the best experience, we recommend using DayChart on desktop
+                </div>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-8 sm:mb-12">
@@ -375,9 +381,9 @@ export default function Dashboard() {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Guest Mode Banner */}
+        {/* Guest Mode Banner - Hidden on mobile */}
         {!user && isGuestMode && (
-          <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-4 py-3 flex items-center justify-center">
+          <div className="hidden lg:flex bg-gradient-to-r from-blue-500 to-blue-600 text-white px-4 py-3 items-center justify-center">
             <div className="flex items-center gap-3 text-center">
               <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -399,8 +405,8 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Header */}
-        <header className="bg-white border-b border-gray-200 px-4 sm:px-8 py-2 sm:py-3 lg:py-4">
+        {/* Header - Hidden on mobile */}
+        <header className="hidden lg:block bg-white border-b border-gray-200 px-4 sm:px-8 py-2 sm:py-3 lg:py-4">
           <div className="flex items-center justify-between gap-2 sm:gap-4">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 sm:gap-3">
@@ -643,8 +649,67 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Bottom Navigation - Mobile Only */}
-      <BottomNav currentRoute={currentRoute} onNavigate={setCurrentRoute} />
+      {/* Bottom Navigation - Hidden (was Mobile Only) */}
+      <div className="hidden">
+        <BottomNav currentRoute={currentRoute} onNavigate={setCurrentRoute} />
+      </div>
+
+      {/* Mobile View Toggle - Top Center */}
+      {currentRoute === 'dashboard' && (
+        <div className="lg:hidden fixed top-4 left-1/2 transform -translate-x-1/2 z-40">
+          <div className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white/95 backdrop-blur-sm p-1 shadow-lg">
+            <button
+              onClick={() => setViewMode('linear')}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                viewMode === 'linear'
+                  ? 'bg-gray-900 text-white shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Linear
+            </button>
+            <button
+              onClick={() => setViewMode('circular')}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                viewMode === 'circular'
+                  ? 'bg-gray-900 text-white shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Circular
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Save Button - Mobile Only (Authenticated Users) */}
+      {user && currentRoute === 'dashboard' && (
+        <button
+          onClick={handleSaveSchedule}
+          disabled={savingRef.current}
+          className="lg:hidden fixed bottom-6 right-6 bg-blue-600 text-white p-4 rounded-full shadow-lg hover:bg-blue-700 transition-all z-40 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+          </svg>
+        </button>
+      )}
+
+      {/* Floating Sign-In Button - Mobile Only (Guest Users) */}
+      {!user && (
+        <button
+          onClick={() => {
+            const button = authButtonRef.current?.querySelector('button');
+            if (button) button.click();
+          }}
+          className="lg:hidden fixed bottom-6 right-6 bg-blue-600 text-white px-4 py-3 rounded-full shadow-lg hover:bg-blue-700 transition-all z-40 flex items-center gap-2 font-medium text-sm"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+          </svg>
+          Sign In
+        </button>
+      )}
 
       {/* Label Modal */}
       {(pendingBlock || editingBlock) && (
