@@ -379,7 +379,7 @@ export default function Dashboard() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col">
         {/* Guest Mode Banner - Hidden on mobile */}
         {!user && isGuestMode && (
           <div className="hidden lg:flex bg-gradient-to-r from-blue-500 to-blue-600 text-white px-4 py-3 items-center justify-center">
@@ -532,7 +532,7 @@ export default function Dashboard() {
                     onClick={() => setViewMode('linear')}
                     className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-full border text-xs font-medium transition-all whitespace-nowrap touch-manipulation ${
                       viewMode === 'linear'
-                        ? 'bg-white text-gray-900 shadow-sm border-gray-200'
+                        ? 'bg-blue-600 text-white shadow-sm border-blue-600'
                         : 'text-gray-600 hover:text-gray-900 border-transparent hover:border-gray-200 hover:bg-white/70'
                     }`}
                   >
@@ -542,7 +542,7 @@ export default function Dashboard() {
                     onClick={() => setViewMode('circular')}
                     className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-full border text-xs font-medium transition-all whitespace-nowrap touch-manipulation ${
                       viewMode === 'circular'
-                        ? 'bg-white text-gray-900 shadow-sm border-gray-200'
+                        ? 'bg-blue-600 text-white shadow-sm border-blue-600'
                         : 'text-gray-600 hover:text-gray-900 border-transparent hover:border-gray-200 hover:bg-white/70'
                     }`}
                   >
@@ -558,7 +558,7 @@ export default function Dashboard() {
         {currentRoute === 'dashboard' && (
           <>
             {/* Desktop: Show based on viewMode */}
-            <div className="hidden lg:block flex-1">
+            <div className="hidden lg:block flex-1 overflow-auto">
               {viewMode === 'linear' && (
                 <Timeline
                   timeBlocks={timeBlocks}
@@ -667,7 +667,7 @@ export default function Dashboard() {
       {currentRoute === 'dashboard' && (
         <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40 px-4 py-3">
           <div className="flex items-center gap-3 mb-2">
-            {!user && (
+            {!user ? (
               <button
                 onClick={() => {
                   const button = authButtonRef.current?.querySelector('button');
@@ -680,10 +680,21 @@ export default function Dashboard() {
                 </svg>
                 Sign In
               </button>
+            ) : (
+              <button
+                onClick={handleSaveSchedule}
+                disabled={savingRef.current}
+                className="flex-1 bg-blue-600 text-white px-4 py-2.5 rounded-lg font-medium text-sm hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                </svg>
+                {savingRef.current ? 'Saving...' : 'Save'}
+              </button>
             )}
             <button
               onClick={handleClearAllBlocks}
-              className={`${!user ? 'flex-1' : 'w-full'} bg-red-50 text-red-600 px-4 py-2.5 rounded-lg font-medium text-sm hover:bg-red-100 transition-colors flex items-center justify-center gap-2`}
+              className="flex-1 bg-red-50 text-red-600 px-4 py-2.5 rounded-lg font-medium text-sm hover:bg-red-100 transition-colors flex items-center justify-center gap-2"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -692,8 +703,45 @@ export default function Dashboard() {
             </button>
           </div>
           <p className="text-xs text-center text-gray-500">
-            For best experience and to save schedules, use desktop
+            {!user
+              ? "Sign in on desktop to save schedules"
+              : "Use desktop to manage multiple schedules"
+            }
           </p>
+        </div>
+      )}
+
+      {/* Mobile Save Success Toast */}
+      {saveStatus && (
+        <div className="lg:hidden fixed bottom-24 left-4 right-4 z-50 animate-fade-in">
+          <div className={`rounded-lg px-4 py-3 shadow-lg flex items-center gap-3 ${
+            saveStatus === 'saved' ? 'bg-green-50 border border-green-200' :
+            saveStatus === 'saving' ? 'bg-blue-50 border border-blue-200' :
+            'bg-red-50 border border-red-200'
+          }`}>
+            {saveStatus === 'saved' && (
+              <>
+                <svg className="w-5 h-5 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="text-sm font-medium text-green-800">Schedule saved successfully!</span>
+              </>
+            )}
+            {saveStatus === 'saving' && (
+              <>
+                <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin flex-shrink-0"></div>
+                <span className="text-sm font-medium text-blue-800">Saving schedule...</span>
+              </>
+            )}
+            {saveStatus === 'error' && (
+              <>
+                <svg className="w-5 h-5 text-red-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="text-sm font-medium text-red-800">Error saving schedule</span>
+              </>
+            )}
+          </div>
         </div>
       )}
 
