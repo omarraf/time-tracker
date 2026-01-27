@@ -31,17 +31,27 @@ export default function Timeline({
   const [viewportHeight, setViewportHeight] = useState(
     typeof window !== 'undefined' ? window.innerHeight : 0,
   );
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== 'undefined' && window.innerWidth < 1024
+  );
 
   const DRAG_THRESHOLD = 10; // pixels to move before starting drag
 
   useEffect(() => {
-    const handleResize = () => setViewportHeight(window.innerHeight);
+    const handleResize = () => {
+      setViewportHeight(window.innerHeight);
+      setIsMobile(window.innerWidth < 1024);
+    };
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const timelineHeight = viewportHeight
+  // On mobile, use a fixed reasonable height that's scrollable
+  // On desktop, use dynamic height based on viewport
+  const timelineHeight = isMobile
+    ? 1400 // Fixed height on mobile for scrollability (about 58px per hour)
+    : viewportHeight
     ? Math.max(820, viewportHeight - 320) // leave room for header + spacing
     : 1100;
   const totalDayMinutes = 24 * 60;

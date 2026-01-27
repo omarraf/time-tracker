@@ -520,8 +520,8 @@ export default function CircularChart({
   };
 
   return (
-    <div className="flex-1 overflow-auto bg-gray-50">
-      <div className="mx-auto max-w-5xl px-2 sm:px-4 lg:px-6 py-2 sm:py-4 lg:py-8 pb-4 sm:pb-8 lg:pb-8">
+    <div className="flex-1 overflow-auto bg-gray-50 flex items-center justify-center">
+      <div className="mx-auto max-w-5xl px-2 sm:px-4 lg:px-6 py-2 sm:py-4 lg:py-8 w-full">
         <div className="mb-2 sm:mb-4 lg:mb-6 text-center hidden lg:block">
           <h3 className="text-base sm:text-lg font-semibold text-gray-900">
             Circular Overview
@@ -530,7 +530,7 @@ export default function CircularChart({
             Drag around the dial to create time blocks or tap an existing block to edit.
           </p>
         </div>
-        <div className="flex items-center justify-center w-full pb-2 sm:pb-4 lg:pb-8">
+        <div className="flex items-center justify-center w-full">
           <svg
             ref={svgRef}
             width={canvasSize}
