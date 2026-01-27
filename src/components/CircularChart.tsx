@@ -50,15 +50,28 @@ export default function CircularChart({
   }, []);
 
   const defaultSize = 720;
-  const heightBound = viewport.height ? viewport.height - 220 : defaultSize;
+  const isMobile = viewport.width < 1024;
+
+  // On mobile, account for floating toggle (~60px) + floating button (~80px)
+  // On desktop, account for header and other UI
+  const mobileHeightOffset = 140;
+  const desktopHeightOffset = 220;
+  const heightBound = viewport.height
+    ? viewport.height - (isMobile ? mobileHeightOffset : desktopHeightOffset)
+    : defaultSize;
+
   // Responsive width calculation: less offset on mobile (no sidebar), more on desktop
-  const isDesktop = viewport.width >= 1024;
-  const sideOffset = isDesktop ? 280 : 48; // 48px for mobile padding + margins (24px each side)
+  const sideOffset = isMobile ? 32 : 280; // Reduced mobile padding
   const widthBound = viewport.width ? viewport.width - sideOffset : defaultSize;
-  const boundedSize = Math.min(Math.max(Math.min(heightBound, widthBound), 380), 900);
+
+  // Allow smaller minimum size on mobile to fit narrow screens
+  const minSize = isMobile ? 280 : 380;
+  const boundedSize = Math.min(Math.max(Math.min(heightBound, widthBound), minSize), 900);
   const chartSize = Number.isFinite(boundedSize) ? boundedSize : defaultSize;
 
-  const labelMargin = Math.max(48, chartSize * 0.085);
+  // Reduce label margin on mobile for more compact display
+  const baseLabelMargin = isMobile ? 40 : 48;
+  const labelMargin = Math.max(baseLabelMargin, chartSize * 0.085);
   const canvasSize = chartSize + labelMargin * 2;
   const center = canvasSize / 2;
   const radius = chartSize * 0.39;
@@ -521,7 +534,7 @@ export default function CircularChart({
 
   return (
     <div className="flex-1 overflow-auto bg-gray-50 flex items-center justify-center">
-      <div className="mx-auto max-w-5xl px-2 sm:px-4 lg:px-6 py-2 sm:py-4 lg:py-8 w-full">
+      <div className="mx-auto max-w-5xl px-1 sm:px-4 lg:px-6 py-1 sm:py-4 lg:py-8 w-full">
         <div className="mb-2 sm:mb-4 lg:mb-6 text-center hidden lg:block">
           <h3 className="text-base sm:text-lg font-semibold text-gray-900">
             Circular Overview
@@ -536,7 +549,7 @@ export default function CircularChart({
             width={canvasSize}
             height={canvasSize}
             className="cursor-crosshair block"
-            style={{ maxWidth: '100%', height: 'auto', margin: '0 auto' }}
+            style={{ maxWidth: '100%', height: 'auto', maxHeight: '100vh', margin: '0 auto' }}
             onMouseDown={handleMouseDown}
             onTouchStart={handleTouchStart}
             onMouseUp={handleMouseUp}

@@ -33,7 +33,7 @@ export default function Dashboard() {
   const [timeBlocks, setTimeBlocks] = useState<TimeBlock[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error' | null>(null);
-  const [viewMode, setViewMode] = useState<'linear' | 'circular'>('linear');
+  const [viewMode, setViewMode] = useState<'linear' | 'circular'>('circular');
   const [showSignInPrompt, setShowSignInPrompt] = useState(false);
 
   // Modal state
@@ -555,21 +555,36 @@ export default function Dashboard() {
           </div>
         </header>
 
-        {/* Content Area */}
-        {currentRoute === 'dashboard' && viewMode === 'linear' && (
-          <Timeline
-            timeBlocks={timeBlocks}
-            onBlockCreated={handleBlockCreated}
-            onBlockClick={handleBlockClick}
-          />
-        )}
+        {/* Content Area - Mobile shows only circular, desktop can toggle */}
+        {currentRoute === 'dashboard' && (
+          <>
+            {/* Desktop: Show based on viewMode */}
+            <div className="hidden lg:block flex-1">
+              {viewMode === 'linear' && (
+                <Timeline
+                  timeBlocks={timeBlocks}
+                  onBlockCreated={handleBlockCreated}
+                  onBlockClick={handleBlockClick}
+                />
+              )}
+              {viewMode === 'circular' && (
+                <CircularChart
+                  timeBlocks={timeBlocks}
+                  onBlockCreated={handleBlockCreated}
+                  onBlockClick={handleBlockClick}
+                />
+              )}
+            </div>
 
-        {currentRoute === 'dashboard' && viewMode === 'circular' && (
-          <CircularChart
-            timeBlocks={timeBlocks}
-            onBlockCreated={handleBlockCreated}
-            onBlockClick={handleBlockClick}
-          />
+            {/* Mobile: Always show circular */}
+            <div className="lg:hidden flex-1">
+              <CircularChart
+                timeBlocks={timeBlocks}
+                onBlockCreated={handleBlockCreated}
+                onBlockClick={handleBlockClick}
+              />
+            </div>
+          </>
         )}
 
         {currentRoute === 'schedules' && (
@@ -653,34 +668,6 @@ export default function Dashboard() {
       <div className="hidden">
         <BottomNav currentRoute={currentRoute} onNavigate={setCurrentRoute} />
       </div>
-
-      {/* Mobile View Toggle - Top Center */}
-      {currentRoute === 'dashboard' && (
-        <div className="lg:hidden fixed top-4 left-1/2 transform -translate-x-1/2 z-40">
-          <div className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white/95 backdrop-blur-sm p-1 shadow-lg">
-            <button
-              onClick={() => setViewMode('linear')}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-                viewMode === 'linear'
-                  ? 'bg-gray-900 text-white shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Linear
-            </button>
-            <button
-              onClick={() => setViewMode('circular')}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-                viewMode === 'circular'
-                  ? 'bg-gray-900 text-white shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Circular
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Floating Save Button - Mobile Only (Authenticated Users) */}
       {user && currentRoute === 'dashboard' && (
