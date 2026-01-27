@@ -53,25 +53,25 @@ export default function CircularChart({
   const isMobile = viewport.width < 1024;
 
   // Calculate label margins first (needed for total canvas size)
-  const baseLabelMargin = isMobile ? 35 : 48;
+  const baseLabelMargin = isMobile ? 28 : 48; // Reduced for bigger circle
   const estimatedLabelMargin = baseLabelMargin;
 
-  // On mobile, account for floating button (~80px) at bottom
+  // On mobile, account for title/description (~70px) + bottom actions (~120px)
   // On desktop, account for header and other UI
-  const mobileHeightOffset = 80;
+  const mobileHeightOffset = 190; // 70 + 120
   const desktopHeightOffset = 220;
   const heightBound = viewport.height
     ? viewport.height - (isMobile ? mobileHeightOffset : desktopHeightOffset) - (estimatedLabelMargin * 2)
     : defaultSize;
 
   // Responsive width calculation: account for padding AND label margins
-  const sidePadding = isMobile ? 16 : 48;
+  const sidePadding = isMobile ? 8 : 48; // Further reduced for bigger circle
   const widthBound = viewport.width
     ? viewport.width - sidePadding - (estimatedLabelMargin * 2)
     : defaultSize;
 
   // Allow smaller minimum size on mobile to fit narrow screens
-  const minSize = isMobile ? 250 : 380;
+  const minSize = isMobile ? 280 : 380;
   const maxSize = 900;
   const boundedSize = Math.min(Math.max(Math.min(heightBound, widthBound), minSize), maxSize);
   const chartSize = Number.isFinite(boundedSize) ? boundedSize : defaultSize;
@@ -540,8 +540,8 @@ export default function CircularChart({
 
   return (
     <div className="flex-1 bg-gray-50 flex items-center justify-center lg:overflow-auto">
-      <div className="w-full max-w-5xl px-2 sm:px-4 lg:px-6 py-0 sm:py-4 lg:py-8">
-        <div className="mb-2 sm:mb-4 lg:mb-6 text-center hidden lg:block">
+      <div className="w-full max-w-5xl px-1 sm:px-4 lg:px-6 py-2 sm:py-4 lg:py-8">
+        <div className="mb-3 sm:mb-4 lg:mb-6 text-center">
           <h3 className="text-base sm:text-lg font-semibold text-gray-900">
             Circular Overview
           </h3>
