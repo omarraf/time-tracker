@@ -32,9 +32,8 @@ export default function Dashboard() {
   const [timeBlocks, setTimeBlocks] = useState<TimeBlock[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error' | null>(null);
-  const [viewMode, setViewMode] = useState<'linear' | 'circular'>('linear');
+  const [viewMode, setViewMode] = useState<'linear' | 'circular'>('circular');
   const [showSignInPrompt, setShowSignInPrompt] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // Modal state
   const [showLabelModal, setShowLabelModal] = useState(false);
@@ -46,6 +45,7 @@ export default function Dashboard() {
   const [currentScheduleName, setCurrentScheduleName] = useState<string>('My Schedule');
   const [showScheduleDropdown, setShowScheduleDropdown] = useState(false);
   const [allSchedules, setAllSchedules] = useState<Schedule[]>([]);
+  const authButtonRef = useRef<HTMLDivElement>(null);
 
   // Ref to track if we're currently saving
   const savingRef = useRef(false);
@@ -269,20 +269,26 @@ export default function Dashboard() {
   // Landing page for non-authenticated users
   if (!user && !isGuestMode) {
     return (
-      <div className="flex h-screen overflow-hidden bg-gradient-to-br from-gray-50 via-white to-gray-50">
+      <div className="h-screen overflow-y-auto overflow-x-hidden bg-gradient-to-br from-gray-50 via-white to-gray-50">
         <AuthButtons />
-        <div className="flex-1 flex items-center justify-center p-8">
-          <div className="max-w-3xl">
-            <div className="text-center mb-12">
-              <h1 className="text-7xl font-black text-gray-900 mb-4 tracking-tight">
+        <div className="flex items-center justify-center p-4 sm:p-8 pt-20 sm:pt-24 pb-8 min-h-screen">
+          <div className="max-w-3xl w-full">
+            <div className="text-center mb-8 sm:mb-12">
+              <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black text-gray-900 mb-3 sm:mb-4 tracking-tight">
                 DayChart
               </h1>
-              <p className="text-xl text-gray-600">
+              <p className="text-lg sm:text-xl text-gray-600">
                 Visual time management reimagined
               </p>
+              {/* Mobile performance note */}
+              <div className="lg:hidden mt-4 px-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+                  For the best experience, we recommend using DayChart on desktop
+                </div>
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-6 mb-12">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-8 sm:mb-12">
               <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
                 <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center mb-4">
                   <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -360,21 +366,12 @@ export default function Dashboard() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
-      {/* Mobile Sidebar Backdrop */}
-      {isSidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-          onClick={() => setIsSidebarOpen(false)}
-        />
-      )}
-
-      {/* Sidebar */}
-      <div className={`${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed lg:static inset-y-0 left-0 z-50 transition-transform duration-300`}>
+      {/* Sidebar - Desktop Only */}
+      <div className="hidden lg:block">
         <Sidebar
           currentRoute={currentRoute}
           onNavigate={(route) => {
             setCurrentRoute(route);
-            setIsSidebarOpen(false); // Close sidebar on mobile after navigation
           }}
           userEmail={user?.email}
           isGuestMode={isGuestMode}
@@ -382,36 +379,34 @@ export default function Dashboard() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Guest Mode Banner */}
+      <div className="flex-1 flex flex-col">
+        {/* Guest Mode Banner - Hidden on mobile */}
         {!user && isGuestMode && (
-          <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-4 py-3 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="hidden lg:flex bg-gradient-to-r from-blue-500 to-blue-600 text-white px-4 py-3 items-center justify-center">
+            <div className="flex items-center gap-3 text-center">
+              <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <span className="text-sm font-medium">
-                You're in guest mode. Sign in to save your schedules!
+                You're in guest mode.{' '}
+                <span
+                  onClick={() => {
+                    const button = authButtonRef.current?.querySelector('button');
+                    if (button) button.click();
+                  }}
+                  className="underline cursor-pointer hover:text-blue-100 transition-colors"
+                >
+                  Sign in
+                </span>{' '}
+                to save your schedules!
               </span>
             </div>
-            <AuthButtons />
           </div>
         )}
 
-        {/* Header */}
-        <header className="bg-white border-b border-gray-200 px-4 sm:px-8 py-3 sm:py-4">
+        {/* Header - Hidden on mobile */}
+        <header className="hidden lg:block bg-white border-b border-gray-200 px-4 sm:px-8 py-2 sm:py-3 lg:py-4">
           <div className="flex items-center justify-between gap-2 sm:gap-4">
-            {/* Hamburger Menu Button - Mobile Only */}
-            <button
-              onClick={() => setIsSidebarOpen(true)}
-              className="lg:hidden p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-              aria-label="Open menu"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
-
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 sm:gap-3">
                 <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">
@@ -537,7 +532,7 @@ export default function Dashboard() {
                     onClick={() => setViewMode('linear')}
                     className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-full border text-xs font-medium transition-all whitespace-nowrap touch-manipulation ${
                       viewMode === 'linear'
-                        ? 'bg-white text-gray-900 shadow-sm border-gray-200'
+                        ? 'bg-blue-600 text-white shadow-sm border-blue-600'
                         : 'text-gray-600 hover:text-gray-900 border-transparent hover:border-gray-200 hover:bg-white/70'
                     }`}
                   >
@@ -547,7 +542,7 @@ export default function Dashboard() {
                     onClick={() => setViewMode('circular')}
                     className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-full border text-xs font-medium transition-all whitespace-nowrap touch-manipulation ${
                       viewMode === 'circular'
-                        ? 'bg-white text-gray-900 shadow-sm border-gray-200'
+                        ? 'bg-blue-600 text-white shadow-sm border-blue-600'
                         : 'text-gray-600 hover:text-gray-900 border-transparent hover:border-gray-200 hover:bg-white/70'
                     }`}
                   >
@@ -559,21 +554,36 @@ export default function Dashboard() {
           </div>
         </header>
 
-        {/* Content Area */}
-        {currentRoute === 'dashboard' && viewMode === 'linear' && (
-          <Timeline
-            timeBlocks={timeBlocks}
-            onBlockCreated={handleBlockCreated}
-            onBlockClick={handleBlockClick}
-          />
-        )}
+        {/* Content Area - Mobile shows only circular, desktop can toggle */}
+        {currentRoute === 'dashboard' && (
+          <>
+            {/* Desktop: Show based on viewMode */}
+            <div className="hidden lg:block flex-1 overflow-auto">
+              {viewMode === 'linear' && (
+                <Timeline
+                  timeBlocks={timeBlocks}
+                  onBlockCreated={handleBlockCreated}
+                  onBlockClick={handleBlockClick}
+                />
+              )}
+              {viewMode === 'circular' && (
+                <CircularChart
+                  timeBlocks={timeBlocks}
+                  onBlockCreated={handleBlockCreated}
+                  onBlockClick={handleBlockClick}
+                />
+              )}
+            </div>
 
-        {currentRoute === 'dashboard' && viewMode === 'circular' && (
-          <CircularChart
-            timeBlocks={timeBlocks}
-            onBlockCreated={handleBlockCreated}
-            onBlockClick={handleBlockClick}
-          />
+            {/* Mobile: Always show circular */}
+            <div className="lg:hidden flex-1">
+              <CircularChart
+                timeBlocks={timeBlocks}
+                onBlockCreated={handleBlockCreated}
+                onBlockClick={handleBlockClick}
+              />
+            </div>
+          </>
         )}
 
         {currentRoute === 'schedules' && (
@@ -596,9 +606,18 @@ export default function Dashboard() {
                     Sign In to View Schedules
                   </h3>
                   <p className="text-gray-600 mb-6">
-                    Create an account or sign in to save and manage multiple schedules
+                    Create an account or{' '}
+                    <span
+                      onClick={() => {
+                        const button = authButtonRef.current?.querySelector('button');
+                        if (button) button.click();
+                      }}
+                      className="text-blue-600 underline cursor-pointer hover:text-blue-700 transition-colors"
+                    >
+                      sign in
+                    </span>{' '}
+                    to save and manage multiple schedules
                   </p>
-                  <AuthButtons />
                 </div>
               </div>
             )}
@@ -626,15 +645,105 @@ export default function Dashboard() {
                     Sign In to Access Settings
                   </h3>
                   <p className="text-gray-600 mb-6">
-                    Sign in to manage your profile, export schedules, and more
+                    <span
+                      onClick={() => {
+                        const button = authButtonRef.current?.querySelector('button');
+                        if (button) button.click();
+                      }}
+                      className="text-blue-600 underline cursor-pointer hover:text-blue-700 transition-colors"
+                    >
+                      Sign in
+                    </span>{' '}
+                    to manage your profile, export schedules, and more
                   </p>
-                  <AuthButtons />
                 </div>
               </div>
             )}
           </>
         )}
       </div>
+
+      {/* Mobile Bottom Actions - Only on Dashboard */}
+      {currentRoute === 'dashboard' && (
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40 px-4 py-3">
+          <div className="flex items-center gap-3 mb-2">
+            {!user ? (
+              <button
+                onClick={() => {
+                  const button = authButtonRef.current?.querySelector('button');
+                  if (button) button.click();
+                }}
+                className="flex-1 bg-blue-600 text-white px-4 py-2.5 rounded-lg font-medium text-sm hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                Sign In
+              </button>
+            ) : (
+              <button
+                onClick={handleSaveSchedule}
+                disabled={savingRef.current}
+                className="flex-1 bg-blue-600 text-white px-4 py-2.5 rounded-lg font-medium text-sm hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                </svg>
+                {savingRef.current ? 'Saving...' : 'Save'}
+              </button>
+            )}
+            <button
+              onClick={handleClearAllBlocks}
+              className="flex-1 bg-red-50 text-red-600 px-4 py-2.5 rounded-lg font-medium text-sm hover:bg-red-100 transition-colors flex items-center justify-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              Delete All
+            </button>
+          </div>
+          <p className="text-xs text-center text-gray-500">
+            {!user
+              ? "Sign in on desktop to save schedules"
+              : "Use desktop to manage multiple schedules"
+            }
+          </p>
+        </div>
+      )}
+
+      {/* Mobile Save Success Toast */}
+      {saveStatus && (
+        <div className="lg:hidden fixed bottom-24 left-4 right-4 z-50 animate-fade-in">
+          <div className={`rounded-lg px-4 py-3 shadow-lg flex items-center gap-3 ${
+            saveStatus === 'saved' ? 'bg-green-50 border border-green-200' :
+            saveStatus === 'saving' ? 'bg-blue-50 border border-blue-200' :
+            'bg-red-50 border border-red-200'
+          }`}>
+            {saveStatus === 'saved' && (
+              <>
+                <svg className="w-5 h-5 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="text-sm font-medium text-green-800">Schedule saved successfully!</span>
+              </>
+            )}
+            {saveStatus === 'saving' && (
+              <>
+                <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin flex-shrink-0"></div>
+                <span className="text-sm font-medium text-blue-800">Saving schedule...</span>
+              </>
+            )}
+            {saveStatus === 'error' && (
+              <>
+                <svg className="w-5 h-5 text-red-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="text-sm font-medium text-red-800">Error saving schedule</span>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Label Modal */}
       {(pendingBlock || editingBlock) && (
@@ -654,6 +763,13 @@ export default function Dashboard() {
           initialLabel={editingBlock?.label}
           initialColor={editingBlock?.color}
         />
+      )}
+
+      {/* Auth Buttons for Guest Mode - Hidden but functional */}
+      {!user && isGuestMode && (
+        <div ref={authButtonRef} className="hidden">
+          <AuthButtons />
+        </div>
       )}
 
       {/* Sign-In Prompt Modal */}

@@ -25,6 +25,7 @@ export default function CircularChart({
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState<number | null>(null);
   const [dragProgress, setDragProgress] = useState(0);
+  const [hasMovedEnough, setHasMovedEnough] = useState(false);
   const [hoveredBlock, setHoveredBlock] = useState<TimeBlock | null>(null);
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null);
   const [viewport, setViewport] = useState(() => ({
@@ -32,6 +33,8 @@ export default function CircularChart({
     height: typeof window !== 'undefined' ? window.innerHeight : 0,
   }));
   const lastDragMinutesRef = useRef<number | null>(null);
+
+  const DRAG_THRESHOLD_MINUTES = 5; // minutes to rotate before starting drag
 
   useEffect(() => {
     const handleResize = () => {
@@ -47,12 +50,34 @@ export default function CircularChart({
   }, []);
 
   const defaultSize = 720;
-  const heightBound = viewport.height ? viewport.height - 220 : defaultSize;
-  const widthBound = viewport.width ? viewport.width - 280 : defaultSize;
-  const boundedSize = Math.min(Math.max(Math.min(heightBound, widthBound), 560), 900);
+  const isMobile = viewport.width < 1024;
+
+  // Calculate label margins first (needed for total canvas size)
+  const baseLabelMargin = isMobile ? 24 : 35; // Even smaller desktop margin
+  const estimatedLabelMargin = baseLabelMargin;
+
+  // On mobile, account for title/description (~70px) + bottom actions (~120px)
+  // On desktop, account for header and other UI
+  const mobileHeightOffset = 190; // 70 + 120
+  const desktopHeightOffset = 140; // Further reduced for bigger, higher circle
+  const heightBound = viewport.height
+    ? viewport.height - (isMobile ? mobileHeightOffset : desktopHeightOffset) - (estimatedLabelMargin * 2)
+    : defaultSize;
+
+  // Responsive width calculation: account for padding AND label margins
+  const sidePadding = isMobile ? 8 : 24; // Further reduced desktop padding
+  const widthBound = viewport.width
+    ? viewport.width - sidePadding - (estimatedLabelMargin * 2)
+    : defaultSize;
+
+  // Allow smaller minimum size on mobile to fit narrow screens
+  const minSize = isMobile ? 280 : 380;
+  const maxSize = isMobile ? 900 : 1400; // Even larger max on desktop
+  const boundedSize = Math.min(Math.max(Math.min(heightBound, widthBound), minSize), maxSize);
   const chartSize = Number.isFinite(boundedSize) ? boundedSize : defaultSize;
 
-  const labelMargin = Math.max(48, chartSize * 0.085);
+  // Final label margin based on actual chart size
+  const labelMargin = Math.max(baseLabelMargin, chartSize * 0.085);
   const canvasSize = chartSize + labelMargin * 2;
   const center = canvasSize / 2;
   const radius = chartSize * 0.39;
@@ -75,6 +100,31 @@ export default function CircularChart({
   // Convert minutes to angle (0 = top = midnight)
   const minutesToAngle = (minutes: number): number => {
     return (minutes / (24 * 60)) * 360;
+  };
+
+  // Check if a point is within the draggable annulus area
+  const isPointInDraggableArea = (e: React.MouseEvent | React.TouchEvent): boolean => {
+    if (!svgRef.current) return false;
+    const rect = svgRef.current.getBoundingClientRect();
+    let clientX: number, clientY: number;
+
+    if ('touches' in e) {
+      const touch = e.touches[0];
+      if (!touch) return false;
+      clientX = touch.clientX;
+      clientY = touch.clientY;
+    } else {
+      clientX = e.clientX;
+      clientY = e.clientY;
+    }
+
+    const x = clientX - rect.left - center;
+    const y = clientY - rect.top - center;
+    const distance = Math.sqrt(x * x + y * y);
+
+    // Allow dragging within the annulus (between innerRadius and radius)
+    // Add a small buffer (10px) outside radius for easier interaction
+    return distance >= innerRadius * 0.9 && distance <= radius + 10;
   };
 
   // Get angle from mouse or touch position
@@ -100,29 +150,36 @@ export default function CircularChart({
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
+    // Only start dragging if click is within the draggable annulus area
+    if (!isPointInDraggableArea(e)) return;
+
     const angle = getAngleFromEvent(e);
     const minutes = angleToMinutes(angle);
     setDragStart(minutes);
     setDragProgress(0);
+    setHasMovedEnough(false);
     lastDragMinutesRef.current = minutes;
     setIsDragging(true);
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    e.preventDefault(); // Prevent scrolling while dragging
+    // Only start dragging if touch is within the draggable annulus area
+    if (!isPointInDraggableArea(e)) return;
+
+    // Prevent default to stop scrolling when touching the chart
+    e.preventDefault();
+
     const angle = getAngleFromEvent(e);
     const minutes = angleToMinutes(angle);
     setDragStart(minutes);
     setDragProgress(0);
+    setHasMovedEnough(false);
     lastDragMinutesRef.current = minutes;
     setIsDragging(true);
   };
 
   const handleMouseMove = useCallback((e: MouseEvent | TouchEvent) => {
     if (!svgRef.current || !isDragging || dragStart === null) return;
-    if ('touches' in e) {
-      e.preventDefault(); // Prevent scrolling while dragging
-    }
 
     const rect = svgRef.current.getBoundingClientRect();
     let clientX: number, clientY: number;
@@ -149,14 +206,29 @@ export default function CircularChart({
 
     setDragProgress(prev => {
       const next = Math.max(0, Math.min(24 * 60, prev + diff));
+
+      // Check if we've moved enough to start dragging
+      if (!hasMovedEnough && next >= DRAG_THRESHOLD_MINUTES) {
+        setHasMovedEnough(true);
+        if ('touches' in e) {
+          e.preventDefault(); // Now prevent scrolling since we're dragging
+        }
+      }
+
+      // Only prevent default on touch if we've moved enough
+      if (hasMovedEnough && 'touches' in e) {
+        e.preventDefault();
+      }
+
       return next;
     });
 
     lastDragMinutesRef.current = minutes;
-  }, [isDragging, dragStart, center]);
+  }, [isDragging, dragStart, center, hasMovedEnough, DRAG_THRESHOLD_MINUTES]);
 
   const handleMouseUp = useCallback(() => {
-    if (isDragging && dragStart !== null && dragProgress >= 5) {
+    // Only create block if we moved enough to start dragging
+    if (isDragging && hasMovedEnough && dragStart !== null && dragProgress >= 5) {
       const startTime = minutesToTimeString(dragStart);
       const endTime = minutesToTimeString((dragStart + dragProgress) % (24 * 60));
       onBlockCreated(startTime, endTime);
@@ -171,7 +243,8 @@ export default function CircularChart({
     setIsDragging(false);
     setDragStart(null);
     setDragProgress(0);
-  }, [isDragging, dragStart, dragProgress, onBlockCreated]);
+    setHasMovedEnough(false);
+  }, [isDragging, hasMovedEnough, dragStart, dragProgress, onBlockCreated]);
 
   // Add global mouse and touch listeners for dragging
   useEffect(() => {
@@ -193,8 +266,9 @@ export default function CircularChart({
   // Render hour labels (24-hour clock: 12 AM top, 6 AM right, 12 PM bottom, 6 PM left)
   const renderHourLabels = () => {
     const labels = [];
-    // Key positions: 0 (12 AM), 3, 6 (6 AM), 9, 12 (12 PM), 15, 18 (6 PM), 21
-    const hoursToShow = [0, 3, 6, 9, 12, 15, 18, 21];
+    // On mobile: show only cardinal directions (12 AM, 6 AM, 12 PM, 6 PM)
+    // On desktop: show all 8 key positions
+    const hoursToShow = isMobile ? [0, 6, 12, 18] : [0, 3, 6, 9, 12, 15, 18, 21];
 
     for (const hour of hoursToShow) {
       const angle = (hour / 24) * 360;
@@ -399,7 +473,7 @@ export default function CircularChart({
 
   // Render drag preview
   const renderDragPreview = () => {
-    if (!isDragging || dragStart === null || dragProgress < 5) return null;
+    if (!isDragging || !hasMovedEnough || dragStart === null || dragProgress < 5) return null;
 
     const startMinutes = dragStart;
     const duration = dragProgress;
@@ -468,9 +542,9 @@ export default function CircularChart({
   };
 
   return (
-    <div className="flex-1 overflow-auto bg-gray-50">
-      <div className="mx-auto max-w-5xl px-4 sm:px-6 py-4 sm:py-8">
-        <div className="mb-4 sm:mb-6 text-center">
+    <div className="flex-1 bg-gray-50 flex items-center justify-center overflow-auto">
+      <div className="w-full max-w-5xl px-1 sm:px-4 lg:px-6 py-2 sm:py-4 lg:py-4">
+        <div className="mb-3 sm:mb-4 lg:mb-3 text-center">
           <h3 className="text-base sm:text-lg font-semibold text-gray-900">
             Circular Overview
           </h3>
@@ -478,12 +552,19 @@ export default function CircularChart({
             Drag around the dial to create time blocks or tap an existing block to edit.
           </p>
         </div>
-        <div className="flex justify-center overflow-auto pb-8">
+        <div className="flex items-center justify-center w-full">
           <svg
             ref={svgRef}
             width={canvasSize}
             height={canvasSize}
-            className="cursor-crosshair touch-none"
+            className="cursor-crosshair block"
+            style={{
+              maxWidth: '100%',
+              height: 'auto',
+              maxHeight: '100vh',
+              margin: '0 auto',
+              touchAction: isMobile ? 'none' : 'auto' // Prevent scrolling/gestures on mobile
+            }}
             onMouseDown={handleMouseDown}
             onTouchStart={handleTouchStart}
             onMouseUp={handleMouseUp}
