@@ -52,25 +52,31 @@ export default function CircularChart({
   const defaultSize = 720;
   const isMobile = viewport.width < 1024;
 
-  // On mobile, account for floating toggle (~60px) + floating button (~80px)
+  // Calculate label margins first (needed for total canvas size)
+  const baseLabelMargin = isMobile ? 35 : 48;
+  const estimatedLabelMargin = baseLabelMargin;
+
+  // On mobile, account for floating button (~80px) at bottom
   // On desktop, account for header and other UI
-  const mobileHeightOffset = 140;
+  const mobileHeightOffset = 80;
   const desktopHeightOffset = 220;
   const heightBound = viewport.height
-    ? viewport.height - (isMobile ? mobileHeightOffset : desktopHeightOffset)
+    ? viewport.height - (isMobile ? mobileHeightOffset : desktopHeightOffset) - (estimatedLabelMargin * 2)
     : defaultSize;
 
-  // Responsive width calculation: less offset on mobile (no sidebar), more on desktop
-  const sideOffset = isMobile ? 32 : 280; // Reduced mobile padding
-  const widthBound = viewport.width ? viewport.width - sideOffset : defaultSize;
+  // Responsive width calculation: account for padding AND label margins
+  const sidePadding = isMobile ? 16 : 48;
+  const widthBound = viewport.width
+    ? viewport.width - sidePadding - (estimatedLabelMargin * 2)
+    : defaultSize;
 
   // Allow smaller minimum size on mobile to fit narrow screens
-  const minSize = isMobile ? 280 : 380;
-  const boundedSize = Math.min(Math.max(Math.min(heightBound, widthBound), minSize), 900);
+  const minSize = isMobile ? 250 : 380;
+  const maxSize = 900;
+  const boundedSize = Math.min(Math.max(Math.min(heightBound, widthBound), minSize), maxSize);
   const chartSize = Number.isFinite(boundedSize) ? boundedSize : defaultSize;
 
-  // Reduce label margin on mobile for more compact display
-  const baseLabelMargin = isMobile ? 40 : 48;
+  // Final label margin based on actual chart size
   const labelMargin = Math.max(baseLabelMargin, chartSize * 0.085);
   const canvasSize = chartSize + labelMargin * 2;
   const center = canvasSize / 2;
@@ -533,8 +539,8 @@ export default function CircularChart({
   };
 
   return (
-    <div className="flex-1 overflow-auto bg-gray-50 flex items-center justify-center">
-      <div className="mx-auto max-w-5xl px-1 sm:px-4 lg:px-6 py-1 sm:py-4 lg:py-8 w-full">
+    <div className="flex-1 bg-gray-50 flex items-center justify-center lg:overflow-auto">
+      <div className="w-full max-w-5xl px-2 sm:px-4 lg:px-6 py-0 sm:py-4 lg:py-8">
         <div className="mb-2 sm:mb-4 lg:mb-6 text-center hidden lg:block">
           <h3 className="text-base sm:text-lg font-semibold text-gray-900">
             Circular Overview
