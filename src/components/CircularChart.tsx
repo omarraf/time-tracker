@@ -166,7 +166,9 @@ export default function CircularChart({
     // Only start dragging if touch is within the draggable annulus area
     if (!isPointInDraggableArea(e)) return;
 
-    // Don't prevent default initially - allow scrolling until threshold is met
+    // Prevent default to stop scrolling when touching the chart
+    e.preventDefault();
+
     const angle = getAngleFromEvent(e);
     const minutes = angleToMinutes(angle);
     setDragStart(minutes);
@@ -556,7 +558,13 @@ export default function CircularChart({
             width={canvasSize}
             height={canvasSize}
             className="cursor-crosshair block"
-            style={{ maxWidth: '100%', height: 'auto', maxHeight: '100vh', margin: '0 auto' }}
+            style={{
+              maxWidth: '100%',
+              height: 'auto',
+              maxHeight: '100vh',
+              margin: '0 auto',
+              touchAction: isMobile ? 'none' : 'auto' // Prevent scrolling/gestures on mobile
+            }}
             onMouseDown={handleMouseDown}
             onTouchStart={handleTouchStart}
             onMouseUp={handleMouseUp}
