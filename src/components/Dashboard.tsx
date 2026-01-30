@@ -9,6 +9,7 @@ import LabelModal from './LabelModal';
 import SchedulesPage from './SchedulesPage';
 import SettingsPage from './SettingsPage';
 import AuthButtons from './AuthButtons';
+import Footer from './Footer';
 import type { NavRoute, TimeBlock } from '../types/schedule';
 import {
   saveSchedule,
@@ -360,6 +361,7 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+        <Footer />
       </div>
     );
   }
