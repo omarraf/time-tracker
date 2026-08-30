@@ -34,3 +34,6 @@ server/dist
 .claude
 *-skill.zip
 *.zip
+
+
+meta/
