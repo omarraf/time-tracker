@@ -59,7 +59,6 @@ export default function Dashboard() {
   const [currentScheduleId, setCurrentScheduleId] = useState<string | null>(null);
   const [currentScheduleName, setCurrentScheduleName] = useState<string>('My Schedule');
   const [allSchedules, setAllSchedules] = useState<Schedule[]>([]);
-  const authButtonRef = useRef<HTMLDivElement>(null);
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [exportPreview, setExportPreview] = useState<ChartImage | null>(null);
@@ -1099,57 +1098,13 @@ export default function Dashboard() {
         />
       )}
 
-      {/* Auth Buttons for Guest Mode — hidden but functional */}
-      {!user && isGuestMode && (
-        <div ref={authButtonRef} className="hidden">
-          <AuthButtons />
-        </div>
-      )}
-
-      {/* Sign-In Prompt Modal */}
+      {/* Authentication modal for dashboard sign-in actions */}
       {showSignInPrompt && (
-        <div className="fixed inset-0 flex items-center justify-center z-[60] p-4" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
-          <div
-            className="rounded-2xl shadow-2xl max-w-md w-full p-8 relative"
-            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-          >
-            <button
-              onClick={() => setShowSignInPrompt(false)}
-              className="absolute top-4 right-4 border-none shadow-none rounded-lg flex items-center justify-center transition-colors"
-              style={{ background: 'transparent', color: 'var(--text-muted)', width: 28, height: 28, cursor: 'pointer', padding: 0 }}
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-
-            <div className="text-center">
-              <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-                </svg>
-              </div>
-
-              <h3 className="text-2xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
-                Sign In to Save
-              </h3>
-              <p className="mb-6" style={{ color: 'var(--text-muted)' }}>
-                Create a free account to save your schedules and access them from anywhere
-              </p>
-
-              <div className="space-y-3">
-                <AuthButtons />
-                <button
-                  onClick={() => setShowSignInPrompt(false)}
-                  className="text-sm border-none shadow-none bg-transparent cursor-pointer"
-                  style={{ color: 'var(--text-muted)' }}
-                >
-                  Continue without saving
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <AuthButtons
+          initiallyOpen
+          showNavigation={false}
+          onModalClose={() => setShowSignInPrompt(false)}
+        />
       )}
     </div>
   );

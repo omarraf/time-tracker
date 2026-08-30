@@ -8,9 +8,19 @@ Modal.setAppElement('#root');
 
 type AuthMode = 'signin' | 'signup' | 'forgot';
 
-export default function AuthButtons() {
+interface AuthButtonsProps {
+  initiallyOpen?: boolean;
+  showNavigation?: boolean;
+  onModalClose?: () => void;
+}
+
+export default function AuthButtons({
+  initiallyOpen = false,
+  showNavigation = true,
+  onModalClose,
+}: AuthButtonsProps = {}) {
   const [user, setUser] = useState(auth.currentUser);
-  const [showModal, setShowModal] = useState(false);
+  const [showModal, setShowModal] = useState(initiallyOpen);
   const [mode, setMode] = useState<AuthMode>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -35,6 +45,7 @@ export default function AuthButtons() {
     setMode('signin');
     clearForm();
     setIsLoading(false);
+    onModalClose?.();
   };
 
   const handleEmailSignIn = async () => {
@@ -108,7 +119,7 @@ export default function AuthButtons() {
 
     try {
       await resetPassword(email);
-      setSuccessMessage('Password reset email sent! Check your inbox.');
+      setSuccessMessage('Password reset email sent! Check your inbox and spam folder.');
       setEmail('');
       // Auto-switch back to sign in after 3 seconds
       setTimeout(() => {
@@ -191,8 +202,14 @@ export default function AuthButtons() {
       await resendVerificationEmail();
       setVerificationMessage('Verification email sent! Check your inbox.');
       setTimeout(() => setVerificationMessage(''), 5000);
-    } catch {
-      setVerificationMessage('Failed to send verification email. Please try again.');
+    } catch (err) {
+      console.error('Failed to resend verification email:', err);
+      const code = (err as { code?: string })?.code;
+      setVerificationMessage(
+        code === 'auth/too-many-requests'
+          ? 'Too many attempts. Please wait a few minutes and try again.'
+          : `Failed to send verification email${code ? ` (${code})` : ''}. Please try again.`
+      );
       setTimeout(() => setVerificationMessage(''), 5000);
     } finally {
       setIsResendingVerification(false);
@@ -286,24 +303,26 @@ export default function AuthButtons() {
 
   return (
     <>
-      <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 sm:px-8 py-4 bg-white/80 dark:bg-gray-950/80 backdrop-blur-md border-b border-gray-100 dark:border-gray-800/60">
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center">
-            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
+      {showNavigation && (
+        <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 sm:px-8 py-4 bg-white/80 dark:bg-gray-950/80 backdrop-blur-md border-b border-gray-100 dark:border-gray-800/60">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center">
+              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <span className="text-lg font-bold text-gray-900 dark:text-white" style={{ fontFamily: 'Outfit, sans-serif' }}>
+              DayChart
+            </span>
           </div>
-          <span className="text-lg font-bold text-gray-900 dark:text-white" style={{ fontFamily: 'Outfit, sans-serif' }}>
-            DayChart
-          </span>
-        </div>
-        <button
-          className="bg-blue-600 text-white border-none px-5 py-2 rounded-lg text-sm font-semibold cursor-pointer transition-all hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-500/25 hover:-translate-y-0.5 active:translate-y-0"
-          onClick={() => setShowModal(true)}
-        >
-          Sign In
-        </button>
-      </nav>
+          <button
+            className="bg-blue-600 text-white border-none px-5 py-2 rounded-lg text-sm font-semibold cursor-pointer transition-all hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-500/25 hover:-translate-y-0.5 active:translate-y-0"
+            onClick={() => setShowModal(true)}
+          >
+            Sign In
+          </button>
+        </nav>
+      )}
 
       <Modal
         isOpen={showModal}
@@ -332,31 +351,41 @@ export default function AuthButtons() {
         </div>
 
         {mode !== 'forgot' && (
-          <div className="flex gap-1 mb-6">
+          <div
+            className="grid grid-cols-2 gap-1 mb-6 rounded-xl bg-slate-100 dark:bg-slate-800 p-1"
+            role="tablist"
+            aria-label="Authentication mode"
+          >
             <button
               type="button"
+              role="tab"
+              aria-selected={mode === 'signin'}
+              onMouseDown={(event) => event.preventDefault()}
               onClick={() => {
                 setMode('signin');
                 clearForm();
               }}
-              className={`flex-1 px-4 py-2.5 text-sm font-semibold transition-all border-b-2 ${
+              className={`px-4 py-2.5 text-sm font-semibold rounded-lg border-none shadow-none transition-colors focus:ring-0 focus:ring-offset-0 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 dark:focus-visible:ring-offset-slate-800 ${
                 mode === 'signin'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-gray-200 text-gray-600 hover:text-gray-900 hover:border-gray-300'
+                  ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-300 shadow-sm'
+                  : 'bg-transparent text-slate-500 dark:text-slate-400 hover:bg-white/60 dark:hover:bg-slate-700/60 hover:text-slate-800 dark:hover:text-slate-200'
               }`}
             >
               Sign In
             </button>
             <button
               type="button"
+              role="tab"
+              aria-selected={mode === 'signup'}
+              onMouseDown={(event) => event.preventDefault()}
               onClick={() => {
                 setMode('signup');
                 clearForm();
               }}
-              className={`flex-1 px-4 py-2.5 text-sm font-semibold transition-all border-b-2 ${
+              className={`px-4 py-2.5 text-sm font-semibold rounded-lg border-none shadow-none transition-colors focus:ring-0 focus:ring-offset-0 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 dark:focus-visible:ring-offset-slate-800 ${
                 mode === 'signup'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-gray-200 text-gray-600 hover:text-gray-900 hover:border-gray-300'
+                  ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-300 shadow-sm'
+                  : 'bg-transparent text-slate-500 dark:text-slate-400 hover:bg-white/60 dark:hover:bg-slate-700/60 hover:text-slate-800 dark:hover:text-slate-200'
               }`}
             >
               Sign Up
