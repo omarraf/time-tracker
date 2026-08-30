@@ -1,0 +1,104 @@
+import { useState, type FormEvent } from 'react';
+
+const FEEDBACK_EMAIL = 'omarrafiqq@gmail.com';
+
+export default function FeedbackPage() {
+  const [category, setCategory] = useState('General feedback');
+  const [message, setMessage] = useState('');
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const subject = `[DayChart Feedback] ${category}`;
+    const body = [
+      message.trim(),
+      '',
+      '---',
+      `Category: ${category}`,
+    ].join('\n');
+
+    window.location.href = `mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  };
+
+  return (
+    <main className="min-h-full p-4 sm:p-8" style={{ background: 'var(--page-bg)' }}>
+      <div className="max-w-2xl mx-auto">
+        <div className="mb-7">
+          <div
+            className="w-11 h-11 rounded-xl flex items-center justify-center mb-4"
+            style={{ background: 'rgba(37,99,235,0.1)', color: '#2563eb' }}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 4v-4z" />
+            </svg>
+          </div>
+          <h1 className="text-left text-2xl font-bold my-0" style={{ color: 'var(--text-primary)' }}>
+            Share feedback
+          </h1>
+          <p className="mt-2 text-sm sm:text-base" style={{ color: 'var(--text-muted)' }}>
+            Found a bug, have a feature idea, or want to share what is working well? I’d love to hear it.
+          </p>
+        </div>
+
+        <form
+          onSubmit={handleSubmit}
+          className="rounded-2xl border p-5 sm:p-6 shadow-sm"
+          style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+        >
+          <div className="space-y-5">
+            <div>
+              <label htmlFor="feedback-category" className="block text-sm font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+                What is this about?
+              </label>
+              <select
+                id="feedback-category"
+                value={category}
+                onChange={(event) => setCategory(event.target.value)}
+                className="w-full rounded-lg border px-3 py-2.5 text-sm"
+                style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+              >
+                <option>General feedback</option>
+                <option>Feature request</option>
+                <option>Bug report</option>
+                <option>Something I like</option>
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="feedback-message" className="block text-sm font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+                Your feedback
+              </label>
+              <textarea
+                id="feedback-message"
+                value={message}
+                onChange={(event) => setMessage(event.target.value)}
+                required
+                rows={8}
+                placeholder="Tell me what’s working, what feels confusing, a bug you ran into, or an idea that would make DayChart better. For bugs, include what you expected and what happened."
+                className="w-full resize-y rounded-lg border px-3 py-3 text-sm leading-6 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+              />
+            </div>
+
+          </div>
+
+          <div className="mt-6 flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between">
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              Opens your email app with a message to {FEEDBACK_EMAIL}.
+            </p>
+            <button
+              type="submit"
+              disabled={!message.trim()}
+              className="inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-sm font-semibold border-none disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Continue to email
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+              </svg>
+            </button>
+          </div>
+        </form>
+      </div>
+    </main>
+  );
+}

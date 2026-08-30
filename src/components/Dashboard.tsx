@@ -9,6 +9,7 @@ import LabelModal from './LabelModal';
 import ExportPreviewModal from './ExportPreviewModal';
 import SchedulesPage from './SchedulesPage';
 import SettingsPage from './SettingsPage';
+import FeedbackPage from './FeedbackPage';
 import AuthButtons from './AuthButtons';
 import AIAssistant from './AIAssistant';
 import type { DisplayMessage } from './AIAssistant';
@@ -491,6 +492,15 @@ export default function Dashboard() {
         </svg>
       ),
     },
+    {
+      route: 'feedback',
+      label: 'Feedback',
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 4v-4z" />
+        </svg>
+      ),
+    },
   ];
 
   return (
@@ -569,6 +579,12 @@ export default function Dashboard() {
               <p style={{ color: 'var(--text-muted)' }}>Sign in to manage your profile and preferences</p>
             </div>
           )}
+        </div>
+      )}
+
+      {currentRoute === 'feedback' && (
+        <div className="absolute inset-0 overflow-y-auto" style={{ paddingTop: 60 }}>
+          <FeedbackPage />
         </div>
       )}
 
